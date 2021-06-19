@@ -1,7 +1,13 @@
 from lxml import etree as ET
 from urllib.request import urlopen, urlparse
 import os
-
+import_blacklist = [
+    'http://www.xbrl.org/2003/xl-2003-12-31.xsd',
+    'http://www.xbrl.org/2003/xbrl-instance-2003-12-31.xsd',
+    'http://www.xbrl.org/2005/xbrldt-2005.xsd',
+    'http://www.esma.europa.eu/taxonomy/ext/technical.xsd'
+]
+elementDict = {}
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
     assert ('../' not in filename), \
@@ -45,17 +51,14 @@ def process_filing(directory):
     inside'''
     process_calculation(directory)
 
-def process_elements(directory, uniqueID):
+def process_elements(targets, uniqueID):
     '''looks for all xsd:elements in the DTS and builds an in-memory
     dictionary of all the elements for later processors'''
     candidates = list()
-    elementDict = {}
     toProcess = set()
     namespacePrefix = None
-    for filename in os.listdir(directory):
-        targetNamespace = None
-        target = os.path.join(directory, filename)
-        print('in file:', filename)
+    for target in targets:
+        print('in file:', target)
         root = xmlFromFile(target)
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
@@ -65,12 +68,16 @@ def process_elements(directory, uniqueID):
         imports = root.findall('{http://www.w3.org/2001/XMLSchema}import')
         print('\timports:',len(imports))
         for link in imports:
-            toProcess.add(link.get('schemaLocation'))
+            location = link.get('schemaLocation')
+            if location not in import_blacklist and 'xbrl.org' not in location:
+                toProcess.add(location)
         elements = root.findall('{http://www.w3.org/2001/XMLSchema}element')
         print('\telements:',len(elements))
-        if len(elements) > 0:
-            process_element(elements[0], elementDict, targetNamespace,
+        for element in elements:
+            process_element(element, elementDict, targetNamespace,
             target, namespacePrefix, root.nsmap)
+    if len(toProcess) > 0:
+        process_elements(toProcess, 'todo')
 
 def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     namespacePrefix, nsmap):
@@ -80,9 +87,11 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     elementUID = namespacePrefix + ':' + xml.get('name')
     typedata = xml.get('type')
     typedata = typedata.split(':')
-    assert len(typedata) == 2, 'bad typedata'
+    assert len(typedata) == 2, elementUID + ' has bad typedata ' + str(typedata)
     typeprefix, typename = typedata[0], typedata[1]
     elementTypeURI = nsmap[typeprefix]
+    assert xml.get('substitutionGroup'), \
+        elementUID + ' has no substitutionGroup '
     subgroupdata = xml.get('substitutionGroup').split(':')
     assert len(subgroupdata) == 2, 'bad substitution group data'
     subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
@@ -113,8 +122,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     if 'abstract' in xml.attrib.keys():
         elementEntry['ElementAbstract'] = \
             xml.get('abstract')
-    for k, v in elementEntry.items():
-        print(k,":",v)
+    elementDict[elementUID] = elementEntry
 
 def process_calculation(directory, uniqueID):
     '''looks for the *cal.xml file and builds the resulting tsv'''
@@ -156,7 +164,13 @@ def process_calculation(directory, uniqueID):
     root = xmlFromFile(candidates[0])
 
 directory = '/home/artiste/Desktop/work-dorette/example'
-process_elements(directory, 'uniqueID')
+targets = set()
+for filename in os.listdir(directory):
+    targetNamespace = None
+    target = os.path.join(directory, filename)
+    targets.add(target)
+process_elements(targets, 'uniqueID')
+print(len(elementDict.keys()))
 
 
 
