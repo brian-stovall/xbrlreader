@@ -1,13 +1,9 @@
 from lxml import etree as ET
 from urllib.request import urlopen, urlparse
 import os
-import_blacklist = [
-    'http://www.xbrl.org/2003/xl-2003-12-31.xsd',
-    'http://www.xbrl.org/2003/xbrl-instance-2003-12-31.xsd',
-    'http://www.xbrl.org/2005/xbrldt-2005.xsd',
-    'http://www.esma.europa.eu/taxonomy/ext/technical.xsd'
-]
+
 elementDict = {}
+
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
     assert ('../' not in filename), \
@@ -16,35 +12,6 @@ def xmlFromFile(filename):
         filename=filename.replace('\\','/')
         return ET.parse(urlopen(filename)).getroot()
     return ET.parse(filename).getroot()
-
-def fixFileReference(url, parentDirectory, first=True):
-    '''tries to repair file reference, as they are often garbage'''
-    print('ffr url:\n',url,'\nparentDir\n')
-    #see if it is a file, return normalized if so
-    if os.path.isfile(url):
-        return os.path.normpath(url)
-
-    #check for relative locators
-    parts = urlparse(url)
-    #print(parts)
-    if not parts.scheme:
-        assert(first == True), 'bad times'
-        recurse = parentDirectory + url
-        return fixFileReference(recurse, parentDirectory, first=False)
-    #clean up ../ and recombine
-    normPath = os.path.normpath(parts.path)
-    if normPath == '.':
-        normPath = ''
-    resultSeparator = '://'
-    #special handling for windows os
-    myScheme = parts.scheme
-    if 'c' in parts.scheme:
-        myScheme = 'C'
-        resultSeparator = ':'
-    result = myScheme + resultSeparator + parts.netloc + normPath
-    if len(parts.fragment) > 0 :
-        result = result + '#' + parts.fragment
-    return result
 
 def process_filing(directory):
     '''this takes a directory and builds the output from the files
@@ -58,8 +25,12 @@ def process_elements(targets, uniqueID):
     toProcess = set()
     namespacePrefix = None
     for target in targets:
+        try:
+            root = xmlFromFile(target)
+        except:
+            print("could not get file:", target)
+            continue
         print('in file:', target)
-        root = xmlFromFile(target)
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
             for entry in root.nsmap:
@@ -69,8 +40,7 @@ def process_elements(targets, uniqueID):
         print('\timports:',len(imports))
         for link in imports:
             location = link.get('schemaLocation')
-            if location not in import_blacklist and 'xbrl.org' not in location:
-                toProcess.add(location)
+            toProcess.add(location)
         elements = root.findall('{http://www.w3.org/2001/XMLSchema}element')
         print('\telements:',len(elements))
         for element in elements:
@@ -86,17 +56,27 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         'trying to process element without targetNamespace'
     elementUID = namespacePrefix + ':' + xml.get('name')
     typedata = xml.get('type')
+    if typedata == None:
+        return
     typedata = typedata.split(':')
-    assert len(typedata) == 2, elementUID + ' has bad typedata ' + str(typedata)
-    typeprefix, typename = typedata[0], typedata[1]
-    elementTypeURI = nsmap[typeprefix]
-    assert xml.get('substitutionGroup'), \
-        elementUID + ' has no substitutionGroup '
-    subgroupdata = xml.get('substitutionGroup').split(':')
-    assert len(subgroupdata) == 2, 'bad substitution group data'
-    subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
-    assert elementUID not in elementDict.keys(), \
-        'already had elementID in elementDict!'
+    typeprefix, typename, elementTypeURI = None, None, None
+    if len(typedata) == 2:
+        typeprefix, typename = typedata[0], typedata[1]
+        elementTypeURI = nsmap[typeprefix]
+    elif len(typedata) == 1:
+        typeprefix, typename = '', typedata[0]
+        elementTypeURI = ''
+    else:
+        assert(False), 'something weird with typedata'
+    subgroupURI, subgroupName = None, None
+    subgroupdata = xml.get('substitutionGroup')
+    if subgroupdata is not None:
+        subgroupdata = subgroupdata.split(':')
+        assert len(subgroupdata) == 2, 'bad substitution group data'
+        subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
+    if elementUID in elementDict.keys():
+        'already had elementID "' +elementUID + '" in elementDict!'
+        return 0
     elementEntry = {
         'unique_filing_id' : 'todo',
         'SchemaSystemId' : schemaSystemId,
@@ -163,6 +143,15 @@ def process_calculation(directory, uniqueID):
             str(candidates)
     root = xmlFromFile(candidates[0])
 
+def dictToCSV(dictionary, outfile, dontwrite=[], sep = '\t'):
+    with open(outfile, 'w') as output:
+        #first write the header
+        output.write(sep.join(dictionary[list(dictionary.keys())[0]].keys()) + '\n')
+        for entry in dictionary:
+            entry = dictionary[entry]
+            details = [str(entry[key]) for key in entry.keys() if key not in dontwrite]
+            output.write(sep.join(details) + '\n')
+
 directory = '/home/artiste/Desktop/work-dorette/example'
 targets = set()
 for filename in os.listdir(directory):
@@ -171,6 +160,9 @@ for filename in os.listdir(directory):
     targets.add(target)
 process_elements(targets, 'uniqueID')
 print(len(elementDict.keys()))
+dictToCSV(elementDict, 'elements.csv')
+
+
 
 
 
