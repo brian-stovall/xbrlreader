@@ -62,11 +62,11 @@ def process_elements(targets, uniqueID):
             target = fixFileReference(target, parentDirectory)
             if target in completed:
                 continue
-            completed.add(target)
             root = xmlFromFile(target)
         except:
             print("could not get file:", target)
             continue
+        completed.add(target)
         print('in file:', target)
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
@@ -75,10 +75,13 @@ def process_elements(targets, uniqueID):
                     namespacePrefix = entry
         imports = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}import')
         print('\timports:',len(imports))
-        linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
-        print('\tlinkbases:',len(linkbases))
         for link in imports:
             location = link.get('schemaLocation')
+            toProcess.add((location, getParentDirectory(location, parentDirectory)))
+        linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
+        print('\tlinkbases:',len(linkbases))
+        for link in linkbases:
+            location = link.get("{http://www.w3.org/1999/xlink}href")
             toProcess.add((location, getParentDirectory(location, parentDirectory)))
         elements = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}element')
         print('\telements:',len(elements))
@@ -212,6 +215,9 @@ for filename in os.listdir(directory):
 process_elements(targets, 'uniqueID')
 print(len(elementDict.keys()))
 dictToCSV(elementDict, 'elements.csv')
+print('sources touched')
+for thing in completed:
+    print(thing)
 
 
 
