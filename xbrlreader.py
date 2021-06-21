@@ -3,6 +3,7 @@ from urllib.request import urlopen, urlparse
 import os
 
 elementDict = {}
+completed = set()
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -18,14 +19,46 @@ def process_filing(directory):
     inside'''
     process_calculation(directory)
 
+def fixFileReference(url, parentDirectory, first=True):
+    '''tries to repair file reference, as they are often garbage'''
+    #print('ffr url:\n',url,'\nparentDir\n',parentDirectory)
+    #see if it is a file, return normalized if so
+    if os.path.isfile(url):
+        return os.path.normpath(url)
+    #check for relative locators
+    parts = urlparse(url)
+    #print(parts)
+    if not parts.scheme:
+        assert(first == True), 'bad times'
+        recurse = parentDirectory + url
+        return fixFileReference(recurse, parentDirectory, first=False)
+    #clean up ../ and recombine
+    normPath = os.path.normpath(parts.path)
+    if normPath == '.':
+        normPath = ''
+    resultSeparator = '://'
+    #special handling for windows os
+    myScheme = parts.scheme
+    if 'c' in parts.scheme:
+        myScheme = 'C'
+        resultSeparator = ':'
+    result = myScheme + resultSeparator + parts.netloc + normPath
+    if len(parts.fragment) > 0 :
+        result = result + '#' + parts.fragment
+    return result
+
 def process_elements(targets, uniqueID):
     '''looks for all xsd:elements in the DTS and builds an in-memory
     dictionary of all the elements for later processors'''
     candidates = list()
     toProcess = set()
     namespacePrefix = None
-    for target in targets:
+    for target, parentDirectory in targets:
         try:
+            target = fixFileReference(target, parentDirectory)
+            if target in completed:
+                continue
+            completed.add(target)
             root = xmlFromFile(target)
         except:
             print("could not get file:", target)
@@ -40,7 +73,7 @@ def process_elements(targets, uniqueID):
         print('\timports:',len(imports))
         for link in imports:
             location = link.get('schemaLocation')
-            toProcess.add(location)
+            toProcess.add((location, getParentDirectory(location, parentDirectory)))
         elements = root.findall('{http://www.w3.org/2001/XMLSchema}element')
         print('\telements:',len(elements))
         for element in elements:
@@ -152,12 +185,22 @@ def dictToCSV(dictionary, outfile, dontwrite=[], sep = '\t'):
             details = [str(entry[key]) for key in entry.keys() if key not in dontwrite]
             output.write(sep.join(details) + '\n')
 
+def getParentDirectory(filename, previousParentDirectory = ''):
+    if filename.startswith('http'):
+        home = filename[0:filename.rfind('/')+1]
+        return home
+    found = os.path.dirname(filename)
+    if found == '':
+        return previousParentDirectory
+#print("'"+getParentDirectory('problem.xsd', 'previousParent')+"'")
+#print(getParentDirectory('http://www.xbrl.org/taxonomy/int/lei/CR/2018-11-01/lei-required.xsd', 'oh no'))
+
 directory = '/home/artiste/Desktop/work-dorette/example'
 targets = set()
 for filename in os.listdir(directory):
     targetNamespace = None
     target = os.path.join(directory, filename)
-    targets.add(target)
+    targets.add((target, getParentDirectory(target)))
 process_elements(targets, 'uniqueID')
 print(len(elementDict.keys()))
 dictToCSV(elementDict, 'elements.csv')
