@@ -19,6 +19,10 @@ def process_filing(directory):
     inside'''
     process_calculation(directory)
 
+def getTaggedElements(parentXML, targetTag):
+    '''gets all xml elements of a specific type (tag) from a root object'''
+    return [xml for xml in parentXML.iter() if xml.tag == targetTag]
+
 def fixFileReference(url, parentDirectory, first=True):
     '''tries to repair file reference, as they are often garbage'''
     #print('ffr url:\n',url,'\nparentDir\n',parentDirectory)
@@ -69,12 +73,14 @@ def process_elements(targets, uniqueID):
             for entry in root.nsmap:
                 if root.nsmap[entry] == targetNamespace:
                     namespacePrefix = entry
-        imports = root.findall('{http://www.w3.org/2001/XMLSchema}import')
+        imports = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}import')
         print('\timports:',len(imports))
+        linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
+        print('\tlinkbases:',len(linkbases))
         for link in imports:
             location = link.get('schemaLocation')
             toProcess.add((location, getParentDirectory(location, parentDirectory)))
-        elements = root.findall('{http://www.w3.org/2001/XMLSchema}element')
+        elements = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}element')
         print('\telements:',len(elements))
         for element in elements:
             process_element(element, elementDict, targetNamespace,
@@ -87,6 +93,8 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     '''turns an element's xml into a dict entry'''
     assert targetNamespace is not None, \
         'trying to process element without targetNamespace'
+    if xml.get('name') == None:
+        return
     elementUID = namespacePrefix + ':' + xml.get('name')
     typedata = xml.get('type')
     if typedata == None:
