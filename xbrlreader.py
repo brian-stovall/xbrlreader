@@ -1,9 +1,12 @@
 from lxml import etree as ET
 from urllib.request import urlopen, urlparse
-import os
+import requests
+import os, json, time
 
 elementDict = {}
 completed = set()
+storage = '/home/artiste/Desktop/work-dorette/cache/'
+storageDict = None
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -11,7 +14,13 @@ def xmlFromFile(filename):
         'garbage file ref got through: \n' + filename
     if 'http' in filename:
         filename=filename.replace('\\','/')
-        return ET.parse(urlopen(filename)).getroot()
+        if filename not in storageDict.keys():
+            timestamp = str(time.time())
+            cachelocation = storage + timestamp
+            with open(cachelocation, 'w') as f:
+                f.write(requests.get(filename).text)
+            storageDict[filename] = cachelocation
+        return ET.parse(storageDict[filename]).getroot()
     return ET.parse(filename).getroot()
 
 def process_filing(directory):
@@ -26,6 +35,7 @@ def getTaggedElements(parentXML, targetTag):
 def fixFileReference(url, parentDirectory, first=True):
     '''tries to repair file reference, as they are often garbage'''
     #print('ffr url:\n',url,'\nparentDir\n',parentDirectory)
+    assert parentDirectory is not None, "must pass parentdirectory"
     #see if it is a file, return normalized if so
     if os.path.isfile(url):
         return os.path.normpath(url)
@@ -58,14 +68,11 @@ def process_elements(targets, uniqueID):
     toProcess = set()
     namespacePrefix = None
     for target, parentDirectory in targets:
-        try:
-            target = fixFileReference(target, parentDirectory)
-            if target in completed:
-                continue
-            root = xmlFromFile(target)
-        except:
-            print("could not get file:", target)
+        assert parentDirectory is not None, target + 'has no pd'
+        target = fixFileReference(target, parentDirectory)
+        if target in completed:
             continue
+        root = xmlFromFile(target)
         completed.add(target)
         print('in file:', target)
         targetNamespace = root.get('targetNamespace')
@@ -201,23 +208,34 @@ def getParentDirectory(filename, previousParentDirectory = ''):
         home = filename[0:filename.rfind('/')+1]
         return home
     found = os.path.dirname(filename)
+    #print(filename, found)
     if found == '':
         return previousParentDirectory
-#print("'"+getParentDirectory('problem.xsd', 'previousParent')+"'")
-#print(getParentDirectory('http://www.xbrl.org/taxonomy/int/lei/CR/2018-11-01/lei-required.xsd', 'oh no'))
+    return found + os.sep
 
-directory = '/home/artiste/Desktop/work-dorette/example'
-targets = set()
-for filename in os.listdir(directory):
-    targetNamespace = None
-    target = os.path.join(directory, filename)
-    targets.add((target, getParentDirectory(target)))
-process_elements(targets, 'uniqueID')
-print(len(elementDict.keys()))
-dictToCSV(elementDict, 'elements.csv')
-print('sources touched')
-for thing in completed:
-    print(thing)
+def go():
+    global storageDict
+    cacheData = storage + 'cache.json'
+    if os.path.exists(cacheData):
+        with open(cacheData, 'r') as infile:
+                storageDict=json.load(infile)
+    else:
+        storageDict = {}
+    print('sd',type(storageDict))
+    directory = '/home/artiste/Desktop/work-dorette/example'
+    targets = set()
+    for filename in os.listdir(directory):
+        targetNamespace = None
+        target = os.path.join(directory, filename)
+        targets.add((target, getParentDirectory(target)))
+    process_elements(targets, 'uniqueID')
+    print(len(elementDict.keys()))
+    dictToCSV(elementDict, 'elements.csv')
+    #for thing in completed:
+    #    print(thing)
+    with open(cacheData, 'w') as outfile:
+        json.dump(storageDict, outfile, indent=4)
+go()
 
 
 
