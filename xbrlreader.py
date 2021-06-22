@@ -13,7 +13,8 @@ def xmlFromFile(filename):
     assert ('../' not in filename), \
         'garbage file ref got through: \n' + filename
     if 'http' in filename:
-        filename=filename.replace('\\','/')
+        #filename=filename.replace('\\','/')
+        #filename = filename.replace('///', '//')
         if filename not in storageDict.keys():
             timestamp = str(time.time())
             cachelocation = storage + timestamp
@@ -32,34 +33,19 @@ def getTaggedElements(parentXML, targetTag):
     '''gets all xml elements of a specific type (tag) from a root object'''
     return [xml for xml in parentXML.iter() if xml.tag == targetTag]
 
-def fixFileReference(url, parentDirectory, first=True):
+def fixFileReference(url, parentDirectory):
     '''tries to repair file reference, as they are often garbage'''
     #print('ffr url:\n',url,'\nparentDir\n',parentDirectory)
     assert parentDirectory is not None, "must pass parentdirectory"
-    #see if it is a file, return normalized if so
-    if os.path.isfile(url):
-        return os.path.normpath(url)
-    #check for relative locators
-    parts = urlparse(url)
-    #print(parts)
-    if not parts.scheme:
-        assert(first == True), 'bad times'
-        recurse = parentDirectory + url
-        return fixFileReference(recurse, parentDirectory, first=False)
-    #clean up ../ and recombine
-    normPath = os.path.normpath(parts.path)
-    if normPath == '.':
-        normPath = ''
-    resultSeparator = '://'
-    #special handling for windows os
-    myScheme = parts.scheme
-    if 'c' in parts.scheme:
-        myScheme = 'C'
-        resultSeparator = ':'
-    result = myScheme + resultSeparator + parts.netloc + normPath
-    if len(parts.fragment) > 0 :
-        result = result + '#' + parts.fragment
-    return result
+    assert '../' not in parentDirectory, 'cannot have ../ in pd:' + \
+        str(parentDirectory)
+    if parentDirectory not in url:
+        url = parentDirectory + os.sep + url
+    url = os.path.normpath(url)
+    #and because normpath ruins urls...
+    if 'http' in url:
+        url = url.replace(':/', '://')
+    return url
 
 def process_elements(targets, uniqueID):
     '''looks for all xsd:elements in the DTS and builds an in-memory
@@ -85,6 +71,19 @@ def process_elements(targets, uniqueID):
         for link in imports:
             location = link.get('schemaLocation')
             toProcess.add((location, getParentDirectory(location, parentDirectory)))
+        locators = getTaggedElements(root, '{http://www.xbrl.org/2003/linkbase}loc')
+        locCounter = 0
+        for locator in locators:
+            href = locator.get("{http://www.w3.org/1999/xlink}href")
+            if href:
+                if '#' in href:
+                    href = href.split('#')[0]
+                assert '#' not in href, 'messy url ' + href
+                setsize = len(toProcess)
+                toProcess.add((href, getParentDirectory(href, parentDirectory)))
+                if len(toProcess) > setsize:
+                    locCounter = locCounter + 1
+        print('\timplicit ref docs:', locCounter)
         linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
         print('\tlinkbases:',len(linkbases))
         for link in linkbases:
@@ -203,15 +202,27 @@ def dictToCSV(dictionary, outfile, dontwrite=[], sep = '\t'):
             details = [str(entry[key]) for key in entry.keys() if key not in dontwrite]
             output.write(sep.join(details) + '\n')
 
-def getParentDirectory(filename, previousParentDirectory = ''):
+def getParentDirectory(filename, previousParentDirectory):
+    assert previousParentDirectory is not None, "must supply pd"
+    assert '../' not in previousParentDirectory, \
+        'cannot have ../ in pd ' + filename + ' : ' + \
+        previousParentDirectory
+    retval = None
     if filename.startswith('http'):
         home = filename[0:filename.rfind('/')+1]
-        return home
-    found = os.path.dirname(filename)
-    #print(filename, found)
-    if found == '':
-        return previousParentDirectory
-    return found + os.sep
+        if '..' in home:
+            retval = previousParentDirectory
+        else:
+            retval = home
+    else:
+        found = os.path.dirname(filename)
+        if found == '' or '..' in found:
+            retval = previousParentDirectory
+        else:
+            retval = found + os.sep
+    assert '../' not in retval, 'BAD PD:  ' +  retval + \
+        '\nfilename\n\t' + filename + '\nppd\n\t' + previousParentDirectory
+    return retval
 
 def go():
     global storageDict
@@ -221,13 +232,12 @@ def go():
                 storageDict=json.load(infile)
     else:
         storageDict = {}
-    print('sd',type(storageDict))
     directory = '/home/artiste/Desktop/work-dorette/example'
     targets = set()
     for filename in os.listdir(directory):
         targetNamespace = None
         target = os.path.join(directory, filename)
-        targets.add((target, getParentDirectory(target)))
+        targets.add((target, getParentDirectory(target, directory)))
     process_elements(targets, 'uniqueID')
     print(len(elementDict.keys()))
     dictToCSV(elementDict, 'elements.csv')
@@ -236,8 +246,9 @@ def go():
     with open(cacheData, 'w') as outfile:
         json.dump(storageDict, outfile, indent=4)
 go()
-
-
+#print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
+#print(os.path.normpath('http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/linkbases/ifric_5/../../full_ifrs-cor_2019-03-27.xsd '))
+#print('http:/www.xbrl.org/dtr/type/nonNumeric-2009-12-16.xsd'.replace(':/','://'))
 
 
 
