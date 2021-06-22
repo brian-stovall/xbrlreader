@@ -199,8 +199,11 @@ def dictToCSV(dictionary, outfile, dontwrite=[], sep = '\t'):
         output.write(sep.join(dictionary[list(dictionary.keys())[0]].keys()) + '\n')
         for entry in dictionary:
             entry = dictionary[entry]
-            details = [str(entry[key]) for key in entry.keys() if key not in dontwrite]
-            output.write(sep.join(details) + '\n')
+            details = [entry[key] for key in entry.keys() if key not in dontwrite]
+            clean_details = []
+            for detail in details:
+                clean_details.append(detail or '')
+            output.write(sep.join(clean_details) + '\n')
 
 def getParentDirectory(filename, previousParentDirectory):
     assert previousParentDirectory is not None, "must supply pd"
