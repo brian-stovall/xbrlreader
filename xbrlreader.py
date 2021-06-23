@@ -83,6 +83,19 @@ def process_elements(targets, uniqueID):
                 toProcess.add((href, getParentDirectory(href, parentDirectory)))
                 if len(toProcess) > setsize:
                     locCounter = locCounter + 1
+        arRefs = getTaggedElements(root, '{http://www.xbrl.org/2003/linkbase}arcroleRef')
+        rRefs = getTaggedElements(root, '{http://www.xbrl.org/2003/linkbase}roleRef')
+        rRefs.extend(rRefs)
+        for ref in rRefs:
+            href = ref.get("{http://www.w3.org/1999/xlink}href")
+            if href:
+                if '#' in href:
+                    href = href.split('#')[0]
+                assert '#' not in href, 'messy url ' + href
+                setsize = len(toProcess)
+                toProcess.add((href, getParentDirectory(href, parentDirectory)))
+                if len(toProcess) > setsize:
+                    locCounter = locCounter + 1
         print('\timplicit ref docs:', locCounter)
         linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
         print('\tlinkbases:',len(linkbases))
