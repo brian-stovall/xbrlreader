@@ -137,6 +137,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         subgroupdata = subgroupdata.split(':')
         assert len(subgroupdata) == 2, 'bad substitution group data'
         subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
+        subgroupURI = xml.nsmap[subgroupURI]
     if elementUID in elementDict.keys():
         'already had elementID "' +elementUID + '" in elementDict!'
         return 0
