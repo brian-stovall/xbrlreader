@@ -262,7 +262,54 @@ def go():
     #    print(thing)
     with open(cacheData, 'w') as outfile:
         json.dump(storageDict, outfile, indent=4)
-go()
+
+def getFilingData():
+    savedURL = storage + 'filings.xbrl.org'
+    URL = 'https://filings.xbrl.org'
+    page = None
+    jsondata = {}
+    if not os.path.exists(savedURL):
+        html = urlopen(URL).read().decode('utf-8')
+        with open(savedURL, 'w') as f:
+            f.write(html)
+    with open(savedURL, 'r') as f:
+        page = f.read()
+    root = ET.fromstring(page, parser=ET.HTMLParser())
+    #first get the table rows:
+    table = getTaggedElements(root, 'tbody')[0]
+    entries = getTaggedElements(table, 'tr')
+    assert(len(entries) == 684), "problem getting entries, " + \
+        str(len(entries)) + "/684"
+    for entry in entries:
+        jsonentry = {}
+        data = getTaggedElements(entry, 'td')
+        for datapoint in data:
+            if datapoint.get('class') == 'entity':
+                jsonentry['lei'] = datapoint.get('data-lei')
+                jsonentry['entityname'] = datapoint.text.strip()
+                jsonentry['leilink'] = datapoint[0][0].get('href')
+            if datapoint.get('class') == 'system':
+                jsonentry['system'] = datapoint.text
+            if datapoint.get('class') == 'country':
+                jsonentry['country'] = datapoint.text
+            if datapoint.get('class') == 'date':
+                jsonentry['date'] = datapoint.text
+            if datapoint.get('class') == 'icon-column':
+                if len(datapoint) == 1:
+                    href = datapoint[0].get('href')
+                    dataclass = datapoint[0][0].get('class')
+                    if dataclass == 'far fa-file-archive':
+                        jsonentry['archive'] = URL+'/'+href
+                    elif dataclass == 'far fa-list':
+                        jsonentry['filelist'] = URL+'/'+href
+                        jsonentry['uuid'] = href.replace('/', '_')
+        jsondata[jsonentry['uuid']] = jsonentry
+    with open(storage + 'filingdata.json', 'w') as f:
+        f.write(json.dumps(jsondata, indent=4))
+
+
+getFilingData()
+#go()
 #print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
 #print(os.path.normpath('http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/linkbases/ifric_5/../../full_ifrs-cor_2019-03-27.xsd '))
 #print('http:/www.xbrl.org/dtr/type/nonNumeric-2009-12-16.xsd'.replace(':/','://'))
