@@ -1,12 +1,16 @@
 from lxml import etree as ET
-from urllib.request import urlopen, urlparse
+from urllib.request import urlopen, urlparse, urlretrieve
 import requests
-import os, json, time
+import os, json, time, zipfile
 
 elementDict = {}
 completed = set()
 storage = '/home/artiste/Desktop/work-dorette/cache/'
+filingManifest = storage + 'filingManifest.json'
+completedDownloadsFile = storage + 'completedDownloads.json'
 storageDict = None
+filingStorage = storage + 'filings' + os.sep
+
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -263,7 +267,7 @@ def go():
     with open(cacheData, 'w') as outfile:
         json.dump(storageDict, outfile, indent=4)
 
-def getFilingData():
+def buildFilingManifest():
     savedURL = storage + 'filings.xbrl.org'
     URL = 'https://filings.xbrl.org'
     page = None
@@ -304,11 +308,53 @@ def getFilingData():
                         jsonentry['filelist'] = URL+'/'+href
                         jsonentry['uuid'] = href.replace('/', '_')
         jsondata[jsonentry['uuid']] = jsonentry
-    with open(storage + 'filingdata.json', 'w') as f:
-        f.write(json.dumps(jsondata, indent=4))
+    with open(filingManifest, 'w') as f:
+        json.dump(jsondata, f, indent=4)
 
+def filingDownloader():
+    '''work through the manifest, getting zip files and lei doc'''
+    if not os.path.exists(filingManifest):
+        print('building manifest')
+        buildFilingManifest()
+    manifest = None
+    with open(filingManifest, 'r') as f:
+        manifest = json.load(f)
+    completedDownloads = None
+    if os.path.exists(completedDownloadsFile):
+        with open(completedDownloadsFile, 'r') as f:
+            completedDownloads = json.load(f)
+    else:
+        completedDownloads = []
+    entriesProcessed = 0
+    for entry in list(manifest.keys())[:10]:
+        entriesProcessed += 1
+        print("Processing entry", entriesProcessed, 'of', len(manifest))
+        downloadFiling(manifest[entry], completedDownloads)
 
-getFilingData()
+def downloadFiling(entry, completedDownloads):
+    '''downloads and saves one filing from the manifest, if not already
+    in completedDownloads, and updates the completed downloads list'''
+    uuid = entry['uuid']
+    if uuid in completedDownloads:
+        return 0
+    #first, create the folder:  country/entity/filing/
+    country = entry['country']
+    entity = entry['entityname'].replace(' ', '_')
+    filing = uuid
+    folder = filingStorage + country + os.sep + entity + \
+        os.sep + filing + os.sep
+    os.makedirs(folder, exist_ok=True)
+    archive, headers = urlretrieve(entry['archive'])
+    with zipfile.ZipFile(archive, 'r') as f:
+        f.extractall(folder)
+    #leipage = urlopen(entry['leilink']).read().decode('utf-8')
+    #with open(folder + os.sep + 'lei.html', 'w') as f:
+    #    f.write(leipage)
+    completedDownloads.append(uuid)
+    with open(completedDownloadsFile, 'w') as f:
+        json.dump(completedDownloads, f, indent = 4)
+
+filingDownloader()
 #go()
 #print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
 #print(os.path.normpath('http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/linkbases/ifric_5/../../full_ifrs-cor_2019-03-27.xsd '))
