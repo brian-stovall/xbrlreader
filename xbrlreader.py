@@ -11,6 +11,7 @@ filingManifest = storage + 'filingManifest.json'
 completedDownloadsFile = storage + 'completedDownloads.json'
 outputFolder =  storage + 'output' + os.sep
 filingStorage = storage + 'filings' + os.sep
+sep = '\t'
 storageDict = None
 
 
@@ -213,7 +214,7 @@ def process_calculation(directory, uniqueID):
             str(candidates)
     root = xmlFromFile(candidates[0])
 
-def dictToCSV(dictionary, outfile, dontwrite=[], sep = '\t'):
+def dictToCSV(dictionary, outfile, dontwrite=[]):
     with open(outfile, 'w') as output:
         #first write the header
         output.write(sep.join(dictionary[list(dictionary.keys())[0]].keys()) + '\n')
@@ -366,8 +367,14 @@ def processDownloads():
         print('No completed downloads to process')
         return
     print('processing comments')
+    commentsDoc = StringIO()
+    header = sep.join(['unique_id', 'comments']) + '\n'
+    commentsDoc.write(header)
     for uuid, folder in completedDownloads:
-        makeCommentsDoc(uuid, folder)
+        addToCommentsDoc(uuid, folder, commentsDoc)
+    filename = outputFolder +'comments.csv'
+    with open(filename, 'w') as f:
+        f.write(commentsDoc.getvalue())
 
 def getComments(files):
     comments = set()
@@ -377,23 +384,15 @@ def getComments(files):
             comments.add(comment.text.strip())
     return comments
 
-def makeCommentsDoc(uuid, directory):
+def addToCommentsDoc(uuid, directory, commentsDoc):
     comments = []
     fileset = []
     for subdir, dirs, files in os.walk(directory):
         for filename in files:
             fileset.append(os.path.join(subdir, filename))
     comments = getComments(fileset)
-    output = StringIO()
-    sep = '\t'
-    header = sep.join(['unique_id', 'comments']) + '\n'
-    output.write(header)
     for comment in comments:
-        output.write(uuid + sep + comment + sep + '\n')
-    filename = outputFolder + uuid +'_comments.csv'
-    with open(filename, 'w') as f:
-        f.write(output.getvalue())
-
+        commentsDoc.write(uuid + sep + comment + sep + '\n')
 
 processDownloads()
 #filingDownloader()
