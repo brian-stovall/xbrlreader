@@ -2,14 +2,16 @@ from lxml import etree as ET
 from urllib.request import urlopen, urlparse, urlretrieve
 import requests
 import os, json, time, zipfile
+from io import StringIO
 
 elementDict = {}
 completed = set()
 storage = '/home/artiste/Desktop/work-dorette/cache/'
 filingManifest = storage + 'filingManifest.json'
 completedDownloadsFile = storage + 'completedDownloads.json'
-storageDict = None
+outputFolder =  storage + 'output' + os.sep
 filingStorage = storage + 'filings' + os.sep
+storageDict = None
 
 
 def xmlFromFile(filename):
@@ -350,11 +352,51 @@ def downloadFiling(entry, completedDownloads):
     #leipage = urlopen(entry['leilink']).read().decode('utf-8')
     #with open(folder + os.sep + 'lei.html', 'w') as f:
     #    f.write(leipage)
-    completedDownloads.append(uuid)
+    completedDownloads.append((uuid,folder))
     with open(completedDownloadsFile, 'w') as f:
         json.dump(completedDownloads, f, indent = 4)
 
-filingDownloader()
+def processDownloads():
+    completedDownloads = None
+    os.makedirs(outputFolder, exist_ok=True)
+    if os.path.exists(completedDownloadsFile):
+        with open(completedDownloadsFile, 'r') as f:
+            completedDownloads = json.load(f)
+    else:
+        print('No completed downloads to process')
+        return
+    print('processing comments')
+    for uuid, folder in completedDownloads:
+        makeCommentsDoc(uuid, folder)
+
+def getComments(files):
+    comments = set()
+    for filename in files:
+        root = ET.parse(filename, parser=ET.HTMLParser())
+        for comment in root.xpath('/comment()'):
+            comments.add(comment.text.strip())
+    return comments
+
+def makeCommentsDoc(uuid, directory):
+    comments = []
+    fileset = []
+    for subdir, dirs, files in os.walk(directory):
+        for filename in files:
+            fileset.append(os.path.join(subdir, filename))
+    comments = getComments(fileset)
+    output = StringIO()
+    sep = '\t'
+    header = sep.join(['unique_id', 'comments']) + '\n'
+    output.write(header)
+    for comment in comments:
+        output.write(uuid + sep + comment + sep + '\n')
+    filename = outputFolder + uuid +'_comments.csv'
+    with open(filename, 'w') as f:
+        f.write(output.getvalue())
+
+
+processDownloads()
+#filingDownloader()
 #go()
 #print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
 #print(os.path.normpath('http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/linkbases/ifric_5/../../full_ifrs-cor_2019-03-27.xsd '))
