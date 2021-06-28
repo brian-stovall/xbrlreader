@@ -6,11 +6,14 @@ from io import StringIO
 
 elementDict = {}
 completed = set()
-storage = '/home/artiste/Desktop/work-dorette/cache/'
+storage = os.getcwd() + os.sep + 'cache' + os.sep
+os.makedirs(storage, exist_ok=True)
 filingManifest = storage + 'filingManifest.json'
 completedDownloadsFile = storage + 'completedDownloads.json'
 outputFolder =  storage + 'output' + os.sep
+os.makedirs(storage, exist_ok=True)
 filingStorage = storage + 'filings' + os.sep
+os.makedirs(storage, exist_ok=True)
 sep = '\t'
 storageDict = None
 
@@ -329,7 +332,7 @@ def filingDownloader():
     else:
         completedDownloads = []
     entriesProcessed = 0
-    for entry in list(manifest.keys())[:10]:
+    for entry in list(manifest.keys()):
         entriesProcessed += 1
         print("Processing entry", entriesProcessed, 'of', len(manifest))
         downloadFiling(manifest[entry], completedDownloads)
@@ -338,8 +341,9 @@ def downloadFiling(entry, completedDownloads):
     '''downloads and saves one filing from the manifest, if not already
     in completedDownloads, and updates the completed downloads list'''
     uuid = entry['uuid']
-    if uuid in completedDownloads:
-        return 0
+    for completed_uuid, folder in completedDownloads:
+        if uuid == completed_uuid:
+            return 0
     #first, create the folder:  country/entity/filing/
     country = entry['country']
     entity = entry['entityname'].replace(' ', '_')
@@ -370,11 +374,15 @@ def processDownloads():
     commentsDoc = StringIO()
     header = sep.join(['unique_id', 'comments']) + '\n'
     commentsDoc.write(header)
+    soFar = 0
     for uuid, folder in completedDownloads:
+        soFar += 1
+        print(str(soFar) + '/' + str(len(completedDownloads)), 'finished')
         addToCommentsDoc(uuid, folder, commentsDoc)
     filename = outputFolder +'comments.csv'
     with open(filename, 'w') as f:
         f.write(commentsDoc.getvalue())
+    print('Finished generating comments doc:\n', filename)
 
 def getComments(files):
     comments = set()
@@ -394,7 +402,18 @@ def addToCommentsDoc(uuid, directory, commentsDoc):
     for comment in comments:
         commentsDoc.write(uuid + sep + comment + sep + '\n')
 
-processDownloads()
+def main():
+    print('Options:')
+    print('\t1 - Continue downloading filings')
+    print('\t2 - Generate comments doc from downloaded filings')
+    choice = input('\nPlease choose an option from the above:')
+    if choice == '1':
+        filingDownloader()
+    elif choice == '2':
+        processDownloads()
+
+main()
+#processDownloads()
 #filingDownloader()
 #go()
 #print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
