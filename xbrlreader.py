@@ -28,7 +28,7 @@ def xmlFromFile(filename):
         if filename not in storageDict.keys():
             timestamp = str(time.time())
             cachelocation = storage + timestamp
-            with open(cachelocation, 'w') as f:
+            with open(cachelocation, 'w', encoding='utf-8') as f:
                 f.write(requests.get(filename).text)
             storageDict[filename] = cachelocation
         return ET.parse(storageDict[filename]).getroot()
@@ -218,7 +218,7 @@ def process_calculation(directory, uniqueID):
     root = xmlFromFile(candidates[0])
 
 def dictToCSV(dictionary, outfile, dontwrite=[]):
-    with open(outfile, 'w') as output:
+    with open(outfile, 'w', encoding='utf-8') as output:
         #first write the header
         output.write(sep.join(dictionary[list(dictionary.keys())[0]].keys()) + '\n')
         for entry in dictionary:
@@ -255,7 +255,7 @@ def go():
     global storageDict
     cacheData = storage + 'cache.json'
     if os.path.exists(cacheData):
-        with open(cacheData, 'r') as infile:
+        with open(cacheData, 'r', encoding='utf-8') as infile:
                 storageDict=json.load(infile)
     else:
         storageDict = {}
@@ -270,7 +270,7 @@ def go():
     dictToCSV(elementDict, 'elements.csv')
     #for thing in completed:
     #    print(thing)
-    with open(cacheData, 'w') as outfile:
+    with open(cacheData, 'w', encoding='utf-8') as outfile:
         json.dump(storageDict, outfile, indent=4)
 
 def buildFilingManifest():
@@ -280,16 +280,14 @@ def buildFilingManifest():
     jsondata = {}
     if not os.path.exists(savedURL):
         html = urlopen(URL).read().decode('utf-8')
-        with open(savedURL, 'w') as f:
+        with open(savedURL, 'w', encoding='utf-8') as f:
             f.write(html)
-    with open(savedURL, 'r') as f:
+    with open(savedURL, 'r', encoding='utf-8') as f:
         page = f.read()
     root = ET.fromstring(page, parser=ET.HTMLParser())
     #first get the table rows:
     table = getTaggedElements(root, 'tbody')[0]
     entries = getTaggedElements(table, 'tr')
-    assert(len(entries) == 684), "problem getting entries, " + \
-        str(len(entries)) + "/684"
     for entry in entries:
         jsonentry = {}
         data = getTaggedElements(entry, 'td')
@@ -314,7 +312,7 @@ def buildFilingManifest():
                         jsonentry['filelist'] = URL+'/'+href
                         jsonentry['uuid'] = href.replace('/', '_')
         jsondata[jsonentry['uuid']] = jsonentry
-    with open(filingManifest, 'w') as f:
+    with open(filingManifest, 'w', encoding='utf-8') as f:
         json.dump(jsondata, f, indent=4)
 
 def filingDownloader():
@@ -323,11 +321,11 @@ def filingDownloader():
         print('building manifest')
         buildFilingManifest()
     manifest = None
-    with open(filingManifest, 'r') as f:
+    with open(filingManifest, 'r', encoding='utf-8') as f:
         manifest = json.load(f)
     completedDownloads = None
     if os.path.exists(completedDownloadsFile):
-        with open(completedDownloadsFile, 'r') as f:
+        with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
             completedDownloads = json.load(f)
     else:
         completedDownloads = []
@@ -358,14 +356,14 @@ def downloadFiling(entry, completedDownloads):
     #with open(folder + os.sep + 'lei.html', 'w') as f:
     #    f.write(leipage)
     completedDownloads.append((uuid,folder))
-    with open(completedDownloadsFile, 'w') as f:
+    with open(completedDownloadsFile, 'w', encoding='utf-8') as f:
         json.dump(completedDownloads, f, indent = 4)
 
 def processDownloads():
     completedDownloads = None
     os.makedirs(outputFolder, exist_ok=True)
     if os.path.exists(completedDownloadsFile):
-        with open(completedDownloadsFile, 'r') as f:
+        with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
             completedDownloads = json.load(f)
     else:
         print('No completed downloads to process')
@@ -380,7 +378,7 @@ def processDownloads():
         print(str(soFar) + '/' + str(len(completedDownloads)), 'finished')
         addToCommentsDoc(uuid, folder, commentsDoc)
     filename = outputFolder +'comments.csv'
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         f.write(commentsDoc.getvalue())
     print('Finished generating comments doc:\n', filename)
 
