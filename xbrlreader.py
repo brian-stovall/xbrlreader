@@ -9,6 +9,7 @@ completed = set()
 storage = os.getcwd() + os.sep + 'cache' + os.sep
 os.makedirs(storage, exist_ok=True)
 filingManifest = storage + 'filingManifest.json'
+manifestCSV = storage + 'filingManifest.csv'
 completedDownloadsFile = storage + 'completedDownloads.json'
 outputFolder =  storage + 'output' + os.sep
 os.makedirs(storage, exist_ok=True)
@@ -335,6 +336,24 @@ def filingDownloader():
         print("Processing entry", entriesProcessed, 'of', len(manifest))
         downloadFiling(manifest[entry], completedDownloads)
 
+def manifestToCSV():
+    '''makes a csv out of the manifest'''
+    output = StringIO()
+    manifest = None
+    with open(filingManifest, 'r', encoding='utf-8') as f:
+        manifest = json.load(f)
+    header = None
+    for entry in list(manifest.values()):
+        if header == None:
+            header = manifest[list(manifest.keys())[0]]
+            output.write(sep.join(header) + '\n')
+        for k, v in entry.items():
+            output.write(v + sep)
+        output.write('\n')
+    with open(manifestCSV, 'w', encoding='utf-8') as f:
+        f.write(output.getvalue())
+
+
 def downloadFiling(entry, completedDownloads):
     '''downloads and saves one filing from the manifest, if not already
     in completedDownloads, and updates the completed downloads list'''
@@ -410,7 +429,8 @@ def main():
     elif choice == '2':
         processDownloads()
 
-main()
+#main()
+manifestToCSV()
 #processDownloads()
 #filingDownloader()
 #go()
