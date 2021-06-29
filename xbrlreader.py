@@ -1,5 +1,6 @@
 from lxml import etree as ET
 from urllib.request import urlopen, urlparse, urlretrieve
+from urllib.parse import quote
 import requests
 import os, json, time, zipfile
 from io import StringIO
@@ -308,13 +309,14 @@ def buildFilingManifest():
                     href = datapoint[0].get('href')
                     dataclass = datapoint[0][0].get('class')
                     if dataclass == 'far fa-file-archive':
-                        jsonentry['archive'] = URL+'/'+href
+                        jsonentry['archive'] = URL+'/'+ quote(href)
                     elif dataclass == 'far fa-list':
-                        jsonentry['filelist'] = URL+'/'+href
+                        jsonentry['filelist'] = URL+'/'+ quote(href)
                         jsonentry['uuid'] = href.replace('/', '_')
         jsondata[jsonentry['uuid']] = jsonentry
     with open(filingManifest, 'w', encoding='utf-8') as f:
         json.dump(jsondata, f, indent=4)
+    manifestToCSV()
 
 def filingDownloader():
     '''work through the manifest, getting zip files and lei doc'''
@@ -429,8 +431,7 @@ def main():
     elif choice == '2':
         processDownloads()
 
-#main()
-manifestToCSV()
+main()
 #processDownloads()
 #filingDownloader()
 #go()
