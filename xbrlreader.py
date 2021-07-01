@@ -343,7 +343,8 @@ def filingDownloader():
             downloadFiling(manifest[entry], completedDownloads)
         except Exception as e:
             print("Error with filing, logged")
-            errorlog.write(str(entriesProcessed) + '\t' + str(e) + '\n')
+            errorlog.write(str(entriesProcessed) + '\t\n' + str(e) + '\t\n' +
+                str(manifest[entry]['archive']) + '\n')
             with open(storage + 'errorLog.txt', 'w') as f:
                 f.write(errorlog.getvalue())
 
