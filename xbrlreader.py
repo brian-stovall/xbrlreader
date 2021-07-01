@@ -1,6 +1,6 @@
 from lxml import etree as ET
 from urllib.request import urlopen, urlparse, urlretrieve
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import requests
 import os, json, time, zipfile
 from io import StringIO
@@ -25,8 +25,6 @@ def xmlFromFile(filename):
     assert ('../' not in filename), \
         'garbage file ref got through: \n' + filename
     if 'http' in filename:
-        #filename=filename.replace('\\','/')
-        #filename = filename.replace('///', '//')
         if filename not in storageDict.keys():
             timestamp = str(time.time())
             cachelocation = storage + timestamp
@@ -296,7 +294,7 @@ def buildFilingManifest():
         for datapoint in data:
             if datapoint.get('class') == 'entity':
                 jsonentry['lei'] = datapoint.get('data-lei')
-                jsonentry['entityname'] = datapoint.text.strip()
+                jsonentry['entityname'] = unquote(datapoint.text.strip())
                 jsonentry['leilink'] = datapoint[0][0].get('href')
             if datapoint.get('class') == 'system':
                 jsonentry['system'] = datapoint.text
@@ -376,7 +374,7 @@ def downloadFiling(entry, completedDownloads):
             return 0
     #first, create the folder:  country/entity/filing/
     country = entry['country']
-    entity = entry['entityname'].replace(' ', '_')
+    entity = entry['entityname'].replace(' ', '_').replace('\\','')
     filing = uuid
     folder = filingStorage + country + os.sep + entity + \
         os.sep + filing + os.sep
