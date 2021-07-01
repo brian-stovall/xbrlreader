@@ -16,6 +16,8 @@ outputFolder =  storage + 'output' + os.sep
 os.makedirs(storage, exist_ok=True)
 filingStorage = storage + 'filings' + os.sep
 os.makedirs(storage, exist_ok=True)
+downloadErrorLog = storage + 'downloadErrorLog.txt'
+commentsErrorLog = storage + 'commentsErrorLog.txt'
 sep = '\t'
 storageDict = None
 
@@ -332,7 +334,7 @@ def filingDownloader():
         completedDownloads = []
     entriesProcessed = 0
     errorlog = StringIO()
-    with open(storage + 'errorLog.txt', 'w') as f:
+    with open(downloadErrorLog) as f:
         f.write('')
     for entry in list(manifest.keys()):
         entriesProcessed += 1
@@ -343,7 +345,7 @@ def filingDownloader():
             print("Error with filing, logged")
             errorlog.write(str(entriesProcessed) + '\t\n' + str(e) + '\t\n' +
                 str(manifest[entry]['archive']) + '\n')
-            with open(storage + 'errorLog.txt', 'w') as f:
+            with open(downloadErrorLog, 'w', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
 
 
@@ -403,10 +405,17 @@ def processDownloads():
     header = sep.join(['unique_id', 'comments']) + '\n'
     commentsDoc.write(header)
     soFar = 0
+    errorlog = StringIO()
+    with open(commentsErrorLog, 'w', encoding='utf-8') as f:
+        f.write('')
     for uuid, folder in completedDownloads:
         soFar += 1
         print(str(soFar) + '/' + str(len(completedDownloads)), 'finished')
-        addToCommentsDoc(uuid, folder, commentsDoc)
+        try:
+            addToCommentsDoc(uuid, folder, commentsDoc)
+        except Exception as e:
+            print("Error getting comments, logged")
+            errorlog.write(str(folder) + '\t\n' + str(e)  + '\n')
     filename = outputFolder +'comments.csv'
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(commentsDoc.getvalue())
