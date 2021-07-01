@@ -333,10 +333,20 @@ def filingDownloader():
     else:
         completedDownloads = []
     entriesProcessed = 0
+    errorlog = StringIO()
+    with open(storage + 'errorLog.txt', 'w') as f:
+        f.write('')
     for entry in list(manifest.keys()):
         entriesProcessed += 1
         print("Processing entry", entriesProcessed, 'of', len(manifest))
-        downloadFiling(manifest[entry], completedDownloads)
+        try:
+            downloadFiling(manifest[entry], completedDownloads)
+        except Exception as e:
+            print("Error with filing, logged")
+            errorlog.write(str(entriesProcessed) + '\t' + str(e) + '\n')
+            with open(storage + 'errorLog.txt', 'w') as f:
+                f.write(errorlog.getvalue())
+
 
 def manifestToCSV():
     '''makes a csv out of the manifest'''
