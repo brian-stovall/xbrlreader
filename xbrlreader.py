@@ -334,7 +334,7 @@ def filingDownloader():
         completedDownloads = []
     entriesProcessed = 0
     errorlog = StringIO()
-    with open(downloadErrorLog) as f:
+    with open(downloadErrorLog, 'w', encoding='utf-8') as f:
         f.write('')
     for entry in list(manifest.keys()):
         entriesProcessed += 1
@@ -384,9 +384,6 @@ def downloadFiling(entry, completedDownloads):
     archive, headers = urlretrieve(entry['archive'])
     with zipfile.ZipFile(archive, 'r') as f:
         f.extractall(folder)
-    #leipage = urlopen(entry['leilink']).read().decode('utf-8')
-    #with open(folder + os.sep + 'lei.html', 'w') as f:
-    #    f.write(leipage)
     completedDownloads.append((uuid,folder))
     with open(completedDownloadsFile, 'w', encoding='utf-8') as f:
         json.dump(completedDownloads, f, indent = 4)
@@ -416,6 +413,8 @@ def processDownloads():
         except Exception as e:
             print("Error getting comments, logged")
             errorlog.write(str(folder) + '\t\n' + str(e)  + '\n')
+    with open(commentsErrorLog, 'w', encoding='utf-8') as f:
+        f.write(errorlog.getvalue())
     filename = outputFolder +'comments.csv'
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(commentsDoc.getvalue())
