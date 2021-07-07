@@ -10,7 +10,7 @@ completed = set()
 storage = os.getcwd() + os.sep + 'cache' + os.sep
 os.makedirs(storage, exist_ok=True)
 filingManifest = storage + 'filingManifest.json'
-manifestCSV = storage + 'filingManifest.csv'
+manifestCSV = storage + 'filingManifest.tsv'
 completedDownloadsFile = storage + 'completedDownloads.json'
 outputFolder =  storage + 'output' + os.sep
 os.makedirs(storage, exist_ok=True)
@@ -269,7 +269,7 @@ def go():
         targets.add((target, getParentDirectory(target, directory)))
     process_elements(targets, 'uniqueID')
     print(len(elementDict.keys()))
-    dictToCSV(elementDict, 'elements.csv')
+    dictToCSV(elementDict, 'elements.tsv')
     #for thing in completed:
     #    print(thing)
     with open(cacheData, 'w', encoding='utf-8') as outfile:
@@ -415,7 +415,7 @@ def processDownloads():
             errorlog.write(str(folder) + '\t\n' + str(e)  + '\n')
     with open(commentsErrorLog, 'w', encoding='utf-8') as f:
         f.write(errorlog.getvalue())
-    filename = outputFolder +'comments.csv'
+    filename = outputFolder +'comments.tsv'
     with open(filename, 'w', encoding='utf-8') as f:
         f.write(commentsDoc.getvalue())
     print('Finished generating comments doc:\n', filename)
@@ -425,7 +425,7 @@ def getComments(files):
     for filename in files:
         root = ET.parse(filename, parser=ET.HTMLParser())
         for comment in root.xpath('/comment()'):
-            comments.add(comment.text.strip())
+            comments.add(comment.text.strip().replace('\t','    '))
     return comments
 
 def addToCommentsDoc(uuid, directory, commentsDoc):
