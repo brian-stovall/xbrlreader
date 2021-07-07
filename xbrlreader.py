@@ -380,6 +380,9 @@ def downloadFiling(entry, completedDownloads):
     filing = uuid
     folder = filingStorage + country + os.sep + entity + \
         os.sep + filing + os.sep
+    folder = os.path.normpath(folder)
+    if len(folder) > 200:
+        folder = filingStorage + 'too_long' + os.sep + str(time.time())
     os.makedirs(folder, exist_ok=True)
     archive, headers = urlretrieve(entry['archive'])
     with zipfile.ZipFile(archive, 'r') as f:
@@ -453,7 +456,7 @@ main()
 #filingDownloader()
 #go()
 #print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
-#print(os.path.normpath('http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/linkbases/ifric_5/../../full_ifrs-cor_2019-03-27.xsd '))
+#print(os.path.normpath('C:\\github\\esef_filings\\cache\\filings\\GB\\Публичное_акционерное_общество_"Магнитогорский_металлургический_комбинат"'))
 #print('http:/www.xbrl.org/dtr/type/nonNumeric-2009-12-16.xsd'.replace(':/','://'))
 
 
