@@ -381,9 +381,11 @@ def downloadFiling(entry, completedDownloads):
     folder = filingStorage + country + os.sep + entity + \
         os.sep + filing + os.sep
     folder = os.path.normpath(folder)
-    if len(folder) > 200:
-        folder = filingStorage + 'too_long' + os.sep + str(time.time())
-    os.makedirs(folder, exist_ok=True)
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except Exception as e:
+        folder = filingStorage + str(time.time()) + os.sep
+        os.makedirs(folder, exist_ok=True)
     archive, headers = urlretrieve(entry['archive'])
     with zipfile.ZipFile(archive, 'r') as f:
         f.extractall(folder)
@@ -428,7 +430,7 @@ def getComments(files):
     for filename in files:
         root = ET.parse(filename, parser=ET.HTMLParser())
         for comment in root.xpath('/comment()'):
-            comments.add(comment.text.strip().replace('\t','    '))
+            comments.add(comment.text.strip().replace('\t','    ').replace('\n', ' '))
     return comments
 
 def addToCommentsDoc(uuid, directory, commentsDoc):
