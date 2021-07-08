@@ -444,7 +444,7 @@ def addToCommentsDoc(uuid, directory, commentsDoc):
         commentsDoc.write(uuid + sep + comment + sep + '\n')
 
 def main():
-    print('Options:')
+    print('Options: (v1)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     choice = input('\nPlease choose an option from the above:')
