@@ -70,7 +70,8 @@ def process_elements(targets, uniqueID):
     for target, parentDirectory in targets:
         assert parentDirectory is not None, target + 'has no pd'
         target = fixFileReference(target, parentDirectory)
-        print(str(target), '- Processing elements')
+        #print('.', end='')
+        #print(str(target), '- Processing elements')
         if target in completed:
             continue
         else:
@@ -79,7 +80,7 @@ def process_elements(targets, uniqueID):
         try:
             root = xmlFromFile(target)
         except Exception as e:
-            print("Error loading xml file, logged and skipped")
+            print("\nError loading xml from", target, "logged and skipped")
             errorlog.write(str(target) + '\t\n' + str(e) + '\n')
             with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
@@ -93,7 +94,7 @@ def process_elements(targets, uniqueID):
                 if root.nsmap[entry] == targetNamespace:
                     namespacePrefix = entry
             if namespacePrefix is None:
-                print("didn't find prefix for targetNS", targetNamespace,
+                print("\nDidn't find prefix for targetNS", targetNamespace,
                     "nsmap:\n\t"+str(root.nsmap)+"\nsuperNSmap:\n\t"+str(superNSmap))
                 namespacePrefix = 'None'
         imports = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}import')
@@ -136,12 +137,12 @@ def process_elements(targets, uniqueID):
         #print('\telements:',len(elements))
         for element in elements:
             process_element(element, elementDict, targetNamespace,
-            target, namespacePrefix, root.nsmap)
+            target, namespacePrefix, root.nsmap, uniqueID)
     if len(toProcess) > 0:
         process_elements(toProcess, uniqueID)
 
 def process_element(xml, elementDict, targetNamespace, schemaSystemId,
-    namespacePrefix, nsmap):
+    namespacePrefix, nsmap, uniqueID):
     '''turns an element's xml into a dict entry'''
     xname = xml.get('name')
     if xname == None:
@@ -176,7 +177,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         'already had elementID "' +elementUID + '" in elementDict!'
         return 0
     elementEntry = {
-        'unique_filing_id' : 'todo',
+        'unique_filing_id' : uniqueID,
         'SchemaSystemId' : schemaSystemId,
         'SchemaTargetNamespace' : targetNamespace,
         'Element' : elementUID,
@@ -274,28 +275,6 @@ def getParentDirectory(filename, previousParentDirectory):
     assert '../' not in retval, 'BAD PD:  ' +  retval + \
         '\nfilename\n\t' + filename + '\nppd\n\t' + previousParentDirectory
     return retval
-
-def go():
-    global storageDict
-    cacheData = storage + 'cache.json'
-    if os.path.exists(cacheData):
-        with open(cacheData, 'r', encoding='utf-8') as infile:
-                storageDict=json.load(infile)
-    else:
-        storageDict = {}
-    directory = '/home/artiste/Desktop/work-dorette/example'
-    targets = set()
-    for filename in os.listdir(directory):
-        targetNamespace = None
-        target = os.path.join(directory, filename)
-        targets.add((target, getParentDirectory(target, directory)))
-    process_elements(targets, 'uniqueID')
-    print(len(elementDict.keys()))
-    dictToCSV(elementDict, 'elements.tsv')
-    #for thing in completed:
-    #    print(thing)
-    with open(cacheData, 'w', encoding='utf-8') as outfile:
-        json.dump(storageDict, outfile, indent=4)
 
 def buildFilingManifest():
     savedURL = storage + 'filings.xbrl.org'
@@ -398,7 +377,7 @@ def downloadFiling(entry, completedDownloads):
             return 0
     #first, create the folder:  country/entity/filing/
     country = entry['country']
-    entity = entry['entityname'].replace(' ', '_').replace('\\','')
+    entity = entry['entityname'].replace(' ', '_').replace(os.sep,'')
     filing = uuid
     folder = filingStorage + country + os.sep + entity + \
         os.sep + filing + os.sep
@@ -411,6 +390,15 @@ def downloadFiling(entry, completedDownloads):
     archive, headers = urlretrieve(entry['archive'])
     with zipfile.ZipFile(archive, 'r') as f:
         f.extractall(folder)
+    #need to rename files to strip out \ and /, see the 3rd entry rawlplug
+    for filename in os.listdir(folder):
+        newfilename = filename
+        if '\\' in filename:
+            newfilename = filename[filename.rfind('\\') + 1:]
+        if '/' in filename:
+            newfilename = filename[filename.rfind('/') + 1:]
+        if newfilename != filename:
+            os.rename(os.path.join(folder,filename), os.path.join(folder,newfilename))
     completedDownloads.append((uuid,folder))
     with open(completedDownloadsFile, 'w', encoding='utf-8') as f:
         json.dump(completedDownloads, f, indent = 4)
@@ -468,10 +456,10 @@ def buildElementMap():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory)))
     process_elements(targets, uuid)
-    print('completed map, contains:', len(elementDict.keys()), 'elements')
-    #dictToCSV(elementDict, 'elements.tsv')
-    #with open(cacheData, 'w', encoding='utf-8') as outfile:
-    #    json.dump(storageDict, outfile, indent=4)
+    print('\nCompleted map, contains:', len(elementDict.keys()), 'elements')
+    dictToCSV(elementDict, storage + 'elements.tsv')
+    with open(cacheData, 'w', encoding='utf-8') as outfile:
+        json.dump(storageDict, outfile, indent=4)
 
 
 def getComments(files):
@@ -496,14 +484,16 @@ def main():
     print('Options: (v1)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
+    print('\t3 - Regenerate element map')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
     elif choice == '2':
         processComments()
+    elif choice == '3':
+        buildElementMap()
 
-buildElementMap()
-#main()
+main()
 
 
 
