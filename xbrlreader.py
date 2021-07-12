@@ -94,8 +94,8 @@ def process_elements(targets, uniqueID):
                 if root.nsmap[entry] == targetNamespace:
                     namespacePrefix = entry
             if namespacePrefix is None:
-                print("\nDidn't find prefix for targetNS", targetNamespace,
-                    "nsmap:\n\t"+str(root.nsmap)+"\nsuperNSmap:\n\t"+str(superNSmap))
+                #print("\nDidn't find prefix for targetNS", targetNamespace,
+                #    "nsmap:\n\t"+str(root.nsmap)+"\nsuperNSmap:\n\t"+str(superNSmap))
                 namespacePrefix = 'None'
         imports = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}import')
         #print('\timports:',len(imports))
@@ -153,6 +153,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         'trying to process <' + str(xname) + '> without namespacePrefix'
     #print('nsp:', namespacePrefix, 'xname:', xname)
     elementUID = namespacePrefix + ':' + xname
+    elementKey = (uniqueID,  elementUID)
     typedata = xml.get('type')
     if typedata == None:
         return
@@ -173,8 +174,8 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         assert len(subgroupdata) == 2, 'bad substitution group data'
         subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
         subgroupURI = xml.nsmap[subgroupURI]
-    if elementUID in elementDict.keys():
-        'already had elementID "' +elementUID + '" in elementDict!'
+    if elementKey in elementDict.keys():
+        assert False, 'repeated element key!\n\t' + str(elementKey)
         return 0
     elementEntry = {
         'unique_filing_id' : uniqueID,
@@ -201,7 +202,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     if 'abstract' in xml.attrib.keys():
         elementEntry['ElementAbstract'] = \
             xml.get('abstract')
-    elementDict[elementUID] = elementEntry
+    elementDict[elementKey] = elementEntry
 
 def process_calculation(directory, uniqueID):
     '''looks for the *cal.xml file and builds the resulting tsv'''
