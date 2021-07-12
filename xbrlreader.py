@@ -18,9 +18,10 @@ filingStorage = storage + 'filings' + os.sep
 os.makedirs(storage, exist_ok=True)
 downloadErrorLog = storage + 'downloadErrorLog.txt'
 commentsErrorLog = storage + 'commentsErrorLog.txt'
+badXMLErrorLog = storage + 'badXMLErrorLog.txt'
 sep = '\t'
 storageDict = None
-
+superNSmap = {}
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -65,21 +66,38 @@ def process_elements(targets, uniqueID):
     candidates = list()
     toProcess = set()
     namespacePrefix = None
+    errorlog = StringIO()
     for target, parentDirectory in targets:
         assert parentDirectory is not None, target + 'has no pd'
         target = fixFileReference(target, parentDirectory)
+        print(str(target), '- Processing elements')
         if target in completed:
             continue
-        root = xmlFromFile(target)
-        completed.add(target)
-        print('in file:', target)
+        else:
+            completed.add(target)
+        root = None
+        try:
+            root = xmlFromFile(target)
+        except Exception as e:
+            print("Error loading xml file, logged and skipped")
+            errorlog.write(str(target) + '\t\n' + str(e) + '\n')
+            with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
+                f.write(errorlog.getvalue())
+            continue
+        #print('in file:', target)
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
             for entry in root.nsmap:
+                if entry not in superNSmap.keys():
+                    superNSmap[entry] = root.nsmap[entry]
                 if root.nsmap[entry] == targetNamespace:
                     namespacePrefix = entry
+            if namespacePrefix is None:
+                print("didn't find prefix for targetNS", targetNamespace,
+                    "nsmap:\n\t"+str(root.nsmap)+"\nsuperNSmap:\n\t"+str(superNSmap))
+                namespacePrefix = 'None'
         imports = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}import')
-        print('\timports:',len(imports))
+        #print('\timports:',len(imports))
         for link in imports:
             location = link.get('schemaLocation')
             toProcess.add((location, getParentDirectory(location, parentDirectory)))
@@ -108,28 +126,32 @@ def process_elements(targets, uniqueID):
                 toProcess.add((href, getParentDirectory(href, parentDirectory)))
                 if len(toProcess) > setsize:
                     locCounter = locCounter + 1
-        print('\timplicit ref docs:', locCounter)
+        #print('\timplicit ref docs:', locCounter)
         linkbases = getTaggedElements(root,'{http://www.xbrl.org/2003/linkbase}linkbaseRef')
-        print('\tlinkbases:',len(linkbases))
+        #print('\tlinkbases:',len(linkbases))
         for link in linkbases:
             location = link.get("{http://www.w3.org/1999/xlink}href")
             toProcess.add((location, getParentDirectory(location, parentDirectory)))
         elements = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}element')
-        print('\telements:',len(elements))
+        #print('\telements:',len(elements))
         for element in elements:
             process_element(element, elementDict, targetNamespace,
             target, namespacePrefix, root.nsmap)
     if len(toProcess) > 0:
-        process_elements(toProcess, 'todo')
+        process_elements(toProcess, uniqueID)
 
 def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     namespacePrefix, nsmap):
     '''turns an element's xml into a dict entry'''
+    xname = xml.get('name')
+    if xname == None:
+        return
     assert targetNamespace is not None, \
         'trying to process element without targetNamespace'
-    if xml.get('name') == None:
-        return
-    elementUID = namespacePrefix + ':' + xml.get('name')
+    assert namespacePrefix is not None, \
+        'trying to process <' + str(xname) + '> without namespacePrefix'
+    #print('nsp:', namespacePrefix, 'xname:', xname)
+    elementUID = namespacePrefix + ':' + xname
     typedata = xml.get('type')
     if typedata == None:
         return
@@ -393,7 +415,7 @@ def downloadFiling(entry, completedDownloads):
     with open(completedDownloadsFile, 'w', encoding='utf-8') as f:
         json.dump(completedDownloads, f, indent = 4)
 
-def processDownloads():
+def processComments():
     completedDownloads = None
     os.makedirs(outputFolder, exist_ok=True)
     if os.path.exists(completedDownloadsFile):
@@ -425,12 +447,39 @@ def processDownloads():
         f.write(commentsDoc.getvalue())
     print('Finished generating comments doc:\n', filename)
 
+def buildElementMap():
+    completedDownloads = None
+    assert os.path.exists(completedDownloadsFile), \
+        'tried to build element map without any completed DLs'
+    with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
+        completedDownloads = json.load(f)
+    global storageDict
+    cacheData = storage + 'cache.json'
+    if os.path.exists(cacheData):
+        with open(cacheData, 'r', encoding='utf-8') as infile:
+                storageDict=json.load(infile)
+    else:
+        storageDict = {}
+    print('building element map')
+    targets = set()
+    for uuid, directory in completedDownloads:
+        for filename in os.listdir(directory):
+            targetNamespace = None
+            target = os.path.join(directory, filename)
+            targets.add((target, getParentDirectory(target, directory)))
+    process_elements(targets, uuid)
+    print('completed map, contains:', len(elementDict.keys()), 'elements')
+    #dictToCSV(elementDict, 'elements.tsv')
+    #with open(cacheData, 'w', encoding='utf-8') as outfile:
+    #    json.dump(storageDict, outfile, indent=4)
+
+
 def getComments(files):
     comments = set()
     for filename in files:
         root = ET.parse(filename, parser=ET.HTMLParser())
         for comment in root.xpath('/comment()'):
-            comments.add(comment.text.strip().replace('\t','    ').replace('\n', ' '))
+            comments.add(comment.text.strip().replace('\t','    ').replace('\n', ' ').replace('\r', ' '))
     return comments
 
 def addToCommentsDoc(uuid, directory, commentsDoc):
@@ -451,15 +500,10 @@ def main():
     if choice == '1':
         filingDownloader()
     elif choice == '2':
-        processDownloads()
+        processComments()
 
-main()
-#processDownloads()
-#filingDownloader()
-#go()
-#print(getParentDirectory('../full_ifrs-cor_2019-03-27.xsd', 'http://xbrl.ifrs.org/taxonomy/2019-03-27/full_ifrs/labels/'))
-#print(os.path.normpath('C:\\github\\esef_filings\\cache\\filings\\GB\\Публичное_акционерное_общество_"Магнитогорский_металлургический_комбинат"'))
-#print('http:/www.xbrl.org/dtr/type/nonNumeric-2009-12-16.xsd'.replace(':/','://'))
+buildElementMap()
+#main()
 
 
 
