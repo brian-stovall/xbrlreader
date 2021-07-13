@@ -452,10 +452,13 @@ def buildElementMap():
     print('building element map')
     targets = set()
     for uuid, directory in completedDownloads:
-        for filename in os.listdir(directory):
-            targetNamespace = None
-            target = os.path.join(directory, filename)
-            targets.add((target, getParentDirectory(target, directory), uuid))
+        #for filename in os.listdir(directory):
+        for directory, dirname, filenames in os.walk(directory):
+            for filename in filenames:
+                targetNamespace = None
+                print(directory, dirname, filename)
+                target = os.path.join(directory, filename)
+                targets.add((target, getParentDirectory(target, directory), uuid))
     process_elements(targets)
     print('\nCompleted map, contains:', len(elementDict.keys()), 'elements')
     dictToCSV(elementDict, storage + 'elements.tsv')
@@ -502,14 +505,21 @@ def processLabels():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
-        processLabel(target, parentdir, uuid)
+        processLabel(target, parentdir, uuid, elementDict)
 
-def processLabel(target, parentdir, uuid):
+def processLabel(target, parentdir, uuid, elementDict):
     if os.path.isdir(target):
         return
     xml = xmlFromFile(target)
+    print('labels from:',target)
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
-    print(len(labels), 'labels found')
+    for label in labels:
+        labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
+        for labelArc in labelArcs:
+            elementID = (labelArc.get('{http://www.w3.org/1999/xlink}from'))
+            elementKey = uuid + ':' + elementID
+            assert(elementKey in elementDict.keys()), \
+                "couldn't get " + elementKey + " from dict"
 
 def main():
     print('Options: (v3)')
