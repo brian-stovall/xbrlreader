@@ -75,6 +75,8 @@ def process_elements(targets):
             continue
         else:
             completed.add(target)
+        if os.path.isdir(target):
+            continue
         root = None
         try:
             root = xmlFromFile(target)
@@ -481,11 +483,40 @@ def addToCommentsDoc(uuid, directory, commentsDoc):
     for comment in comments:
         commentsDoc.write(uuid + sep + comment + sep + '\n')
 
+def processLabels():
+    completedDownloads = None
+    assert os.path.exists(completedDownloadsFile), \
+        'tried to build labels doc without any completed DLs'
+    with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
+        completedDownloads = json.load(f)
+    elementDict = None
+    assert os.path.exists(elements_json), \
+        'tried to build labels doc without any element map'
+    with open(elements_json) as f:
+        elementDict = json.load(f)
+    labelsData = StringIO()
+    targets = set()
+    for uuid, directory in completedDownloads:
+        for filename in os.listdir(directory):
+            targetNamespace = None
+            target = os.path.join(directory, filename)
+            targets.add((target, getParentDirectory(target, directory), uuid))
+    for target, parentdir, uuid in targets:
+        processLabel(target, parentdir, uuid)
+
+def processLabel(target, parentdir, uuid):
+    if os.path.isdir(target):
+        return
+    xml = xmlFromFile(target)
+    labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
+    print(len(labels), 'labels found')
+
 def main():
-    print('Options: (v2)')
+    print('Options: (v3)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
+    print('\t4 - Generate labels doc')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
@@ -493,6 +524,8 @@ def main():
         processComments()
     elif choice == '3':
         buildElementMap()
+    elif choice == '4':
+        processLabels()
 
 main()
 
