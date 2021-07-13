@@ -482,7 +482,7 @@ def addToCommentsDoc(uuid, directory, commentsDoc):
         commentsDoc.write(uuid + sep + comment + sep + '\n')
 
 def main():
-    print('Options: (v1)')
+    print('Options: (v2)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
