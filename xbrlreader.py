@@ -19,6 +19,7 @@ os.makedirs(storage, exist_ok=True)
 downloadErrorLog = storage + 'downloadErrorLog.txt'
 commentsErrorLog = storage + 'commentsErrorLog.txt'
 badXMLErrorLog = storage + 'badXMLErrorLog.txt'
+elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
 superNSmap = {}
@@ -60,18 +61,16 @@ def fixFileReference(url, parentDirectory):
         url = url.replace(':/', '://')
     return url
 
-def process_elements(targets, uniqueID):
+def process_elements(targets):
     '''looks for all xsd:elements in the DTS and builds an in-memory
     dictionary of all the elements for later processors'''
     candidates = list()
     toProcess = set()
     namespacePrefix = None
     errorlog = StringIO()
-    for target, parentDirectory in targets:
+    for target, parentDirectory, uniqueID in targets:
         assert parentDirectory is not None, target + 'has no pd'
         target = fixFileReference(target, parentDirectory)
-        #print('.', end='')
-        #print(str(target), '- Processing elements')
         if target in completed:
             continue
         else:
@@ -85,7 +84,6 @@ def process_elements(targets, uniqueID):
             with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
             continue
-        #print('in file:', target)
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
             for entry in root.nsmap:
@@ -101,7 +99,7 @@ def process_elements(targets, uniqueID):
         #print('\timports:',len(imports))
         for link in imports:
             location = link.get('schemaLocation')
-            toProcess.add((location, getParentDirectory(location, parentDirectory)))
+            toProcess.add((location, getParentDirectory(location, parentDirectory), uniqueID))
         locators = getTaggedElements(root, '{http://www.xbrl.org/2003/linkbase}loc')
         locCounter = 0
         for locator in locators:
@@ -111,7 +109,7 @@ def process_elements(targets, uniqueID):
                     href = href.split('#')[0]
                 assert '#' not in href, 'messy url ' + href
                 setsize = len(toProcess)
-                toProcess.add((href, getParentDirectory(href, parentDirectory)))
+                toProcess.add((href, getParentDirectory(href, parentDirectory), uniqueID))
                 if len(toProcess) > setsize:
                     locCounter = locCounter + 1
         arRefs = getTaggedElements(root, '{http://www.xbrl.org/2003/linkbase}arcroleRef')
@@ -124,7 +122,7 @@ def process_elements(targets, uniqueID):
                     href = href.split('#')[0]
                 assert '#' not in href, 'messy url ' + href
                 setsize = len(toProcess)
-                toProcess.add((href, getParentDirectory(href, parentDirectory)))
+                toProcess.add((href, getParentDirectory(href, parentDirectory), uniqueID))
                 if len(toProcess) > setsize:
                     locCounter = locCounter + 1
         #print('\timplicit ref docs:', locCounter)
@@ -132,14 +130,14 @@ def process_elements(targets, uniqueID):
         #print('\tlinkbases:',len(linkbases))
         for link in linkbases:
             location = link.get("{http://www.w3.org/1999/xlink}href")
-            toProcess.add((location, getParentDirectory(location, parentDirectory)))
+            toProcess.add((location, getParentDirectory(location, parentDirectory), uniqueID))
         elements = getTaggedElements(root,'{http://www.w3.org/2001/XMLSchema}element')
         #print('\telements:',len(elements))
         for element in elements:
             process_element(element, elementDict, targetNamespace,
             target, namespacePrefix, root.nsmap, uniqueID)
     if len(toProcess) > 0:
-        process_elements(toProcess, uniqueID)
+        process_elements(toProcess)
 
 def process_element(xml, elementDict, targetNamespace, schemaSystemId,
     namespacePrefix, nsmap, uniqueID):
@@ -153,7 +151,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         'trying to process <' + str(xname) + '> without namespacePrefix'
     #print('nsp:', namespacePrefix, 'xname:', xname)
     elementUID = namespacePrefix + ':' + xname
-    elementKey = (uniqueID,  elementUID)
+    elementKey = uniqueID + '-' + elementUID
     typedata = xml.get('type')
     if typedata == None:
         return
@@ -455,12 +453,14 @@ def buildElementMap():
         for filename in os.listdir(directory):
             targetNamespace = None
             target = os.path.join(directory, filename)
-            targets.add((target, getParentDirectory(target, directory)))
-    process_elements(targets, uuid)
+            targets.add((target, getParentDirectory(target, directory), uuid))
+    process_elements(targets)
     print('\nCompleted map, contains:', len(elementDict.keys()), 'elements')
     dictToCSV(elementDict, storage + 'elements.tsv')
     with open(cacheData, 'w', encoding='utf-8') as outfile:
         json.dump(storageDict, outfile, indent=4)
+    with open(elements_json, 'w', encoding='utf-8') as f:
+        json.dump(elementDict, f, indent=4)
 
 
 def getComments(files):
