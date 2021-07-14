@@ -235,7 +235,8 @@ def process_calculation(directory, uniqueID):
         25:'Weight'
     }
     candidates = list()
-    for filename in os.listdir(directory):
+    for directory, dirname, filenames in os.walk(directory):
+      for filename in filenames:
         if 'cal.xml' in filename:
             candidates.append(os.path.join(directory, filename))
     assert len(candidates) == 1, \
@@ -392,7 +393,8 @@ def downloadFiling(entry, completedDownloads):
     with zipfile.ZipFile(archive, 'r') as f:
         f.extractall(folder)
     #need to rename files to strip out \ and /, see the 3rd entry rawlplug
-    for filename in os.listdir(folder):
+    for directory, dirname, filenames in os.walk(folder):
+      for filename in filenames:
         newfilename = filename
         if '\\' in filename:
             newfilename = filename[filename.rfind('\\') + 1:]
@@ -452,7 +454,6 @@ def buildElementMap():
     print('building element map')
     targets = set()
     for uuid, directory in completedDownloads:
-        #for filename in os.listdir(directory):
         for directory, dirname, filenames in os.walk(directory):
             for filename in filenames:
                 targetNamespace = None
@@ -500,26 +501,53 @@ def processLabels():
     labelsData = StringIO()
     targets = set()
     for uuid, directory in completedDownloads:
-        for filename in os.listdir(directory):
+        for directory, dirname, filenames in os.walk(directory):
+          for filename in filenames:
             targetNamespace = None
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
         processLabel(target, parentdir, uuid, elementDict)
+'''
+2594003JTXPYO8NOG018_2020-12-31_ESEF_PL_0
+NoncurrentFinancialAssetsMeasuredAtFairValue
+ughhhh, labels are not dependable, need to parse the whole fucking thing.
+or, cheat by searching the key when it breaks?
+'''
 
 def processLabel(target, parentdir, uuid, elementDict):
     if os.path.isdir(target):
         return
-    xml = xmlFromFile(target)
-    print('labels from:',target)
+    try:
+        xml = xmlFromFile(target)
+    except Exception as e:
+            print("\nError loading xml from", target, "logged and skipped")
+            with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
+                f.write(str(target) + '\t\n' + str(e) + '\n')
+            return
+    #print('labels from:',target)
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
+        element = None
         labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
         for labelArc in labelArcs:
-            elementID = (labelArc.get('{http://www.w3.org/1999/xlink}from'))
-            elementKey = uuid + ':' + elementID
-            assert(elementKey in elementDict.keys()), \
-                "couldn't get " + elementKey + " from dict"
+            fromID = labelArc.get('{http://www.w3.org/1999/xlink}from')
+            authority = ''
+            elementID = fromID
+            if '_' in fromID:
+                authority, elementID = (fromID).split('_')
+            elementKey = uuid + '-' + authority + ':' + elementID
+            if elementKey in elementDict.keys():
+                element = elementDict[elementKey]
+            else: #because the xbrl locator system is awful garbage
+                for key in elementDict.keys():
+                    if elementID in key and uuid in key:
+                        element = elementDict[key]
+                    if element is not None:
+                        break
+            assert element is not None, \
+                "didn't find element for label!\n"+target+"\n"+fromID
+
 
 def main():
     print('Options: (v5)')
