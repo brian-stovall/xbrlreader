@@ -496,9 +496,17 @@ def processLabels():
     elementDict = None
     assert os.path.exists(elements_json), \
         'tried to build labels doc without any element map'
-    with open(elements_json) as f:
+    with open(elements_json, 'r', encoding='utf-8') as f:
         elementDict = json.load(f)
     labelsData = StringIO()
+    labelsHeader = ['unique_filing_id','LinkbaseSystemId','Element','ElementId',
+        'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+        'ElementTypeName','ElementSubstitutionGroupURI',
+        'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+        'ElementAbstract','ElementNillable','XLinkRole','SrcLocatorRole',
+        'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
+        'LinkOrder','Priority','Use	Label','LabelLanguage']
+    labelsData.write(sep.join(labelsHeader) + '\n')
     targets = set()
     for uuid, directory in completedDownloads:
         for directory, dirname, filenames in os.walk(directory):
@@ -507,15 +515,11 @@ def processLabels():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
-        processLabel(target, parentdir, uuid, elementDict)
-'''
-2594003JTXPYO8NOG018_2020-12-31_ESEF_PL_0
-NoncurrentFinancialAssetsMeasuredAtFairValue
-ughhhh, labels are not dependable, need to parse the whole fucking thing.
-or, cheat by searching the key when it breaks?
-'''
+        processLabel(labelsData, target, parentdir, uuid, elementDict)
+    with open(storage+'labels.tsv', 'w', encoding='utf-8') as f:
+        f.write(labelsData.getvalue())
 
-def processLabel(target, parentdir, uuid, elementDict):
+def processLabel(labelsData, target, parentdir, uuid, elementDict):
     if os.path.isdir(target):
         return
     try:
@@ -547,10 +551,18 @@ def processLabel(target, parentdir, uuid, elementDict):
                         break
             assert element is not None, \
                 "didn't find element for label!\n"+target+"\n"+fromID
-
+            #begin writing sheet
+            labelsData.write(uuid + sep + target + sep)
+            for elementData in ['Element','ElementId',
+                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                'ElementTypeName','ElementSubstitutionGroupURI',
+                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                'ElementAbstract','ElementNillable']:
+                labelsData.write(element[elementData] + sep)
+            labelsData.write('\n')
 
 def main():
-    print('Options: (v5)')
+    print('Options: (v6)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
