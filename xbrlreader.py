@@ -175,7 +175,7 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         subgroupURI, subgroupName = subgroupdata[0], subgroupdata[1]
         subgroupURI = xml.nsmap[subgroupURI]
     if elementKey in elementDict.keys():
-        assert False, 'repeated element key!\n\t' + str(elementKey)
+        #assert False, 'repeated element key!\n\t' + str(elementKey)
         return 0
     elementEntry = {
         'unique_filing_id' : uniqueID,
@@ -562,7 +562,7 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
             labelsData.write('\n')
 
 def main():
-    print('Options: (v6)')
+    print('Options: (v6.1)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
