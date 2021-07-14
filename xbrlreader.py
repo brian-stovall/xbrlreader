@@ -522,7 +522,7 @@ def processLabel(target, parentdir, uuid, elementDict):
                 "couldn't get " + elementKey + " from dict"
 
 def main():
-    print('Options: (v4)')
+    print('Options: (v5)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
