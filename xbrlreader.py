@@ -71,10 +71,10 @@ def process_elements(targets):
     for target, parentDirectory, uniqueID in targets:
         assert parentDirectory is not None, target + 'has no pd'
         target = fixFileReference(target, parentDirectory)
-        if target in completed:
+        if uniqueID+'-'+target in completed:
             continue
         else:
-            completed.add(target)
+            completed.add(uniqueID+'-'+target)
         if os.path.isdir(target):
             continue
         root = None
