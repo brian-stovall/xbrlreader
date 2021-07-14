@@ -56,9 +56,9 @@ def fixFileReference(url, parentDirectory):
     if parentDirectory not in url:
         url = parentDirectory + os.sep + url
     url = os.path.normpath(url)
-    #and because normpath ruins urls...
+    #and because normpath ruins urls... and windows loves backslashes
     if 'http' in url:
-        url = url.replace(':/', '://')
+        url = url.replace('\\', '/').replace(':/', '://')
     return url
 
 def process_elements(targets):
@@ -456,7 +456,7 @@ def buildElementMap():
         for directory, dirname, filenames in os.walk(directory):
             for filename in filenames:
                 targetNamespace = None
-                print(directory, dirname, filename)
+                #print(directory, dirname, filename)
                 target = os.path.join(directory, filename)
                 targets.add((target, getParentDirectory(target, directory), uuid))
     process_elements(targets)
@@ -522,7 +522,7 @@ def processLabel(target, parentdir, uuid, elementDict):
                 "couldn't get " + elementKey + " from dict"
 
 def main():
-    print('Options: (v3)')
+    print('Options: (v4)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Generate comments doc from downloaded filings')
     print('\t3 - Regenerate element map')
