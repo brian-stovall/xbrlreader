@@ -462,7 +462,7 @@ def buildElementMap():
                 targets.add((target, getParentDirectory(target, directory), uuid))
     process_elements(targets)
     print('\nCompleted map, contains:', len(elementDict.keys()), 'elements')
-    dictToCSV(elementDict, storage + 'elements.tsv')
+    #dictToCSV(elementDict, storage + 'elements.tsv')
     with open(cacheData, 'w', encoding='utf-8') as outfile:
         json.dump(storageDict, outfile, indent=4)
     with open(elements_json, 'w', encoding='utf-8') as f:
@@ -498,7 +498,7 @@ def processLabels():
         'tried to build labels doc without any element map'
     with open(elements_json, 'r', encoding='utf-8') as f:
         elementDict = json.load(f)
-    labelsData = StringIO()
+    labelsSheet = StringIO()
     labelsHeader = ['unique_filing_id','LinkbaseSystemId','Element','ElementId',
         'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
         'ElementTypeName','ElementSubstitutionGroupURI',
@@ -506,7 +506,15 @@ def processLabels():
         'ElementAbstract','ElementNillable','XLinkRole','SrcLocatorRole',
         'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
         'LinkOrder','Priority','Use	Label','LabelLanguage']
-    labelsData.write(sep.join(labelsHeader) + '\n')
+    labelsSheet.write(sep.join(labelsHeader) + '\n')
+    elementsSheet = StringIO()
+    elementsHeader = ['unique_filing_id', 'SchemaSystemId', 'Element','ElementId',
+                'ElementLabel',
+                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                'ElementTypeName','ElementSubstitutionGroupURI',
+                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                'ElementAbstract','ElementNillable']
+    elementsSheet.write(sep.join(elementsHeader) + '\n')
     targets = set()
     for uuid, directory in completedDownloads:
         for directory, dirname, filenames in os.walk(directory):
@@ -515,11 +523,13 @@ def processLabels():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
-        processLabel(labelsData, target, parentdir, uuid, elementDict)
+        processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet)
     with open(storage+'labels.tsv', 'w', encoding='utf-8') as f:
-        f.write(labelsData.getvalue())
+        f.write(labelsSheet.getvalue())
+    with open(storage+'elements.tsv', 'w', encoding='utf-8') as f:
+        f.write(elementsSheet.getvalue())
 
-def processLabel(labelsData, target, parentdir, uuid, elementDict):
+def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet):
     if os.path.isdir(target):
         return
     try:
@@ -579,29 +589,41 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
                 labelMap['LinkOrder'] = 1
                 labelMap['Priority'] = 0
                 labelMap['Use'] = 'optional'
-                labelMap['Label'] = link_label.text
+                labelMap['Label'] = link_label.text.strip().replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
                 labelMap['LabelLanguage'] = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
-            #begin writing sheet
-            labelsData.write(uuid + sep + target + sep)
+                #update element with ElementLabel
+                element['ElementLabel'] = labelMap['Label']
+            #write to labels sheet
+            labelsSheet.write(uuid + sep + target + sep)
             for elementData in ['Element','ElementId',
                 'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
                 'ElementTypeName','ElementSubstitutionGroupURI',
                 'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
                 'ElementAbstract','ElementNillable']:
-                labelsData.write(element[elementData] + sep)
+                labelsSheet.write(element[elementData] + sep)
             for labeldata in ['XLinkRole','SrcLocatorRole',
                 'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
                 'Arcrole','LinkOrder','Priority','Use','Label',
                 'LabelLanguage']:
-                labelsData.write(str(labelMap[labeldata]) + sep)
-            labelsData.write('\n')
+                labelsSheet.write(str(labelMap[labeldata]) + sep)
+            labelsSheet.write('\n')
+            #write to elements sheet
+            elementsSheet.write(uuid + sep + target + sep)
+            for elementData in ['Element','ElementId',
+                'ElementLabel',
+                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                'ElementTypeName','ElementSubstitutionGroupURI',
+                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                'ElementAbstract','ElementNillable']:
+                    elementsSheet.write(element[elementData] + sep)
+            elementsSheet.write('\n')
 
 def main():
-    print('Options: (v6.1)')
+    print('Options: (v7)')
     print('\t1 - Continue downloading filings')
-    print('\t2 - Generate comments doc from downloaded filings')
+    print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
-    print('\t4 - Generate labels doc')
+    print('\t4 - Create labels.tsv and elments.tsv')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
