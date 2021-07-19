@@ -568,19 +568,19 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
             labelMap = {}
             for link_label in link_labels:
                 #standard role? maybe from link:labelLink at doc top?
-                XLinkRole = link_label.getparent().get('{http://www.w3.org/1999/xlink}role')
+                labelMap['XLinkRole'] = link_label.getparent().get('{http://www.w3.org/1999/xlink}role')
                 #TODO finish when dorette figures this out
-                SrcLocatorRole = 'TODO'
-                SrcLocatorLabel = fromID
-                DestLocatorRole = link_label.get('{http://www.w3.org/1999/xlink}role')
-                DestLocatorLabel = toID
-                Arcrole = labelArc.get('{http://www.w3.org/1999/xlink}arcrole')
+                labelMap['SrcLocatorRole'] = 'TODO'
+                labelMap['SrcLocatorLabel'] = fromID
+                labelMap['DestLocatorRole'] = link_label.get('{http://www.w3.org/1999/xlink}role')
+                labelMap['DestLocatorLabel'] = toID
+                labelMap['Arcrole'] = labelArc.get('{http://www.w3.org/1999/xlink}arcrole')
                 #TODO these are strange, only 1 and 0 in example doc
-                LinkOrder = 1
-                Priority = 0
-                Use = 'optional'
-                Label = link_label.text
-                LabelLanguage = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
+                labelMap['LinkOrder'] = 1
+                labelMap['Priority'] = 0
+                labelMap['Use'] = 'optional'
+                labelMap['Label'] = link_label.text
+                labelMap['LabelLanguage'] = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
             #begin writing sheet
             labelsData.write(uuid + sep + target + sep)
             for elementData in ['Element','ElementId',
@@ -593,7 +593,7 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
                 'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
                 'Arcrole','LinkOrder','Priority','Use','Label',
                 'LabelLanguage']:
-                    pass
+                labelsData.write(str(labelMap[labeldata]) + sep)
             labelsData.write('\n')
 
 def main():
