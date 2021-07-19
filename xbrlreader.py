@@ -551,6 +551,17 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
                         break
             assert element is not None, \
                 "didn't find element for label!\n"+target+"\n"+fromID
+            #now get the label stuff:
+            toID = labelArc.get('{http://www.w3.org/1999/xlink}to')
+            #find a link:label that has the toID as the value for xlink:label
+            labellinks = (label.xpath("//link:label[@xlink:label='"+toID+"']",
+                namespaces = {
+                    'link': 'http://www.xbrl.org/2003/linkbase',
+                    'xlink': 'http://www.w3.org/1999/xlink'
+                }
+                                ))
+            #TODO this is odd
+            assert len(labellinks) == 1, 'hmm ' + str(len(labellinks))
             #begin writing sheet
             labelsData.write(uuid + sep + target + sep)
             for elementData in ['Element','ElementId',

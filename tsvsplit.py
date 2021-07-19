@@ -5,6 +5,7 @@ targetFile = r'/home/artiste/Desktop/work-dorette/code/cache/elements.tsv'
 split_tsv = pd.read_csv(targetFile, delimiter = '\t')
 
 #get the number of lines of the tsv file to be read
+#len function gets length of dataframe in rows
 number_lines = len(split_tsv)
 print('length via len:', len(split_tsv))
 #this works but is really slow
