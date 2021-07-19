@@ -529,11 +529,11 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
             with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
             return
-    #print('labels from:',target)
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
         element = None
         labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
+        #print('iterating', len(labelArcs), 'labelarcs')
         for labelArc in labelArcs:
             fromID = labelArc.get('{http://www.w3.org/1999/xlink}from')
             authority = ''
@@ -554,14 +554,33 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
             #now get the label stuff:
             toID = labelArc.get('{http://www.w3.org/1999/xlink}to')
             #find a link:label that has the toID as the value for xlink:label
-            labellinks = (label.xpath("//link:label[@xlink:label='"+toID+"']",
+            link_labels = (label.xpath("//link:label[@xlink:label='"+toID+"']",
                 namespaces = {
                     'link': 'http://www.xbrl.org/2003/linkbase',
                     'xlink': 'http://www.w3.org/1999/xlink'
                 }
                                 ))
-            #TODO this is odd
-            assert len(labellinks) == 1, 'hmm ' + str(len(labellinks))
+            #might be multiple link_labels, this may be  what determines # rows
+            assert len(link_labels) > 0, 'in file ' + target + ' got ' \
+                + str(len(link_labels)) + ' on line ' + \
+                str(labelArc.sourceline) + ' for toID: ' + str(toID)
+            #get label data
+            labelMap = {}
+            for link_label in link_labels:
+                #standard role? maybe from link:labelLink at doc top?
+                XLinkRole = link_label.getparent().get('{http://www.w3.org/1999/xlink}role')
+                #TODO finish when dorette figures this out
+                SrcLocatorRole = 'TODO'
+                SrcLocatorLabel = fromID
+                DestLocatorRole = link_label.get('{http://www.w3.org/1999/xlink}role')
+                DestLocatorLabel = toID
+                Arcrole = labelArc.get('{http://www.w3.org/1999/xlink}arcrole')
+                #TODO these are strange, only 1 and 0 in example doc
+                LinkOrder = 1
+                Priority = 0
+                Use = 'optional'
+                Label = link_label.text
+                LabelLanguage = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
             #begin writing sheet
             labelsData.write(uuid + sep + target + sep)
             for elementData in ['Element','ElementId',
@@ -570,6 +589,11 @@ def processLabel(labelsData, target, parentdir, uuid, elementDict):
                 'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
                 'ElementAbstract','ElementNillable']:
                 labelsData.write(element[elementData] + sep)
+            for labeldata in ['XLinkRole','SrcLocatorRole',
+                'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
+                'Arcrole','LinkOrder','Priority','Use','Label',
+                'LabelLanguage']:
+                    pass
             labelsData.write('\n')
 
 def main():
