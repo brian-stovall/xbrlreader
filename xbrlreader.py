@@ -19,6 +19,7 @@ os.makedirs(storage, exist_ok=True)
 downloadErrorLog = storage + 'downloadErrorLog.txt'
 commentsErrorLog = storage + 'commentsErrorLog.txt'
 badXMLErrorLog = storage + 'badXMLErrorLog.txt'
+labelErrorLog = storage + 'labelErrors.txt'
 elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
@@ -541,82 +542,88 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
             return
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
-        element = None
-        labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
-        #print('iterating', len(labelArcs), 'labelarcs')
-        for labelArc in labelArcs:
-            fromID = labelArc.get('{http://www.w3.org/1999/xlink}from')
-            authority = ''
-            elementID = fromID
-            if '_' in fromID:
-                authority, elementID = (fromID).split('_')
-            elementKey = uuid + '-' + authority + ':' + elementID
-            if elementKey in elementDict.keys():
-                element = elementDict[elementKey]
-            else: #because the xbrl locator system is awful garbage
-                for key in elementDict.keys():
-                    if elementID in key and uuid in key:
-                        element = elementDict[key]
-                    if element is not None:
-                        break
-            assert element is not None, \
-                "didn't find element for label!\n"+target+"\n"+fromID
-            #now get the label stuff:
-            toID = labelArc.get('{http://www.w3.org/1999/xlink}to')
-            #find a link:label that has the toID as the value for xlink:label
-            link_labels = (label.xpath("//link:label[@xlink:label='"+toID+"']",
-                namespaces = {
-                    'link': 'http://www.xbrl.org/2003/linkbase',
-                    'xlink': 'http://www.w3.org/1999/xlink'
-                }
-                                ))
-            #might be multiple link_labels, this may be  what determines # rows
-            assert len(link_labels) > 0, 'in file ' + target + ' got ' \
-                + str(len(link_labels)) + ' on line ' + \
-                str(labelArc.sourceline) + ' for toID: ' + str(toID)
-            #get label data
-            labelMap = {}
-            for link_label in link_labels:
-                #standard role? maybe from link:labelLink at doc top?
-                labelMap['XLinkRole'] = link_label.getparent().get('{http://www.w3.org/1999/xlink}role')
-                #TODO finish when dorette figures this out
-                labelMap['SrcLocatorRole'] = 'TODO'
-                labelMap['SrcLocatorLabel'] = fromID
-                labelMap['DestLocatorRole'] = link_label.get('{http://www.w3.org/1999/xlink}role')
-                labelMap['DestLocatorLabel'] = toID
-                labelMap['Arcrole'] = labelArc.get('{http://www.w3.org/1999/xlink}arcrole')
-                #TODO these are strange, only 1 and 0 in example doc
-                labelMap['LinkOrder'] = 1
-                labelMap['Priority'] = 0
-                labelMap['Use'] = 'optional'
-                labelMap['Label'] = link_label.text.strip().replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
-                labelMap['LabelLanguage'] = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
-                #update element with ElementLabel
-                element['ElementLabel'] = labelMap['Label']
-            #write to labels sheet
-            labelsSheet.write(uuid + sep + target + sep)
-            for elementData in ['Element','ElementId',
-                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
-                'ElementTypeName','ElementSubstitutionGroupURI',
-                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
-                'ElementAbstract','ElementNillable']:
-                labelsSheet.write(element[elementData] + sep)
-            for labeldata in ['XLinkRole','SrcLocatorRole',
-                'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
-                'Arcrole','LinkOrder','Priority','Use','Label',
-                'LabelLanguage']:
-                labelsSheet.write(str(labelMap[labeldata]) + sep)
-            labelsSheet.write('\n')
-            #write to elements sheet
-            elementsSheet.write(uuid + sep + target + sep)
-            for elementData in ['Element','ElementId',
-                'ElementLabel',
-                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
-                'ElementTypeName','ElementSubstitutionGroupURI',
-                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
-                'ElementAbstract','ElementNillable']:
-                    elementsSheet.write(element[elementData] + sep)
-            elementsSheet.write('\n')
+        try:
+            element = None
+            labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
+            #print('iterating', len(labelArcs), 'labelarcs')
+            for labelArc in labelArcs:
+                fromID = labelArc.get('{http://www.w3.org/1999/xlink}from')
+                authority = ''
+                elementID = fromID
+                if '_' in fromID:
+                    authority, elementID = (fromID).split('_', maxsplit=1)
+                elementKey = uuid + '-' + authority + ':' + elementID
+                if elementKey in elementDict.keys():
+                    element = elementDict[elementKey]
+                else: #because the xbrl locator system is awful garbage
+                    for key in elementDict.keys():
+                        if elementID in key and uuid in key:
+                            element = elementDict[key]
+                        if element is not None:
+                            break
+                assert element is not None, \
+                    "didn't find element for label!\n"+target+"\n"+fromID
+                #now get the label stuff:
+                toID = labelArc.get('{http://www.w3.org/1999/xlink}to')
+                #find a link:label that has the toID as the value for xlink:label
+                link_labels = (label.xpath("//link:label[@xlink:label='"+toID+"']",
+                    namespaces = {
+                        'link': 'http://www.xbrl.org/2003/linkbase',
+                        'xlink': 'http://www.w3.org/1999/xlink'
+                    }
+                                    ))
+                #might be multiple link_labels, this may be  what determines # rows
+                assert len(link_labels) > 0, 'in file ' + target + ' got ' \
+                    + str(len(link_labels)) + ' on line ' + \
+                    str(labelArc.sourceline) + ' for toID: ' + str(toID)
+                #get label data
+                labelMap = {}
+                for link_label in link_labels:
+                    #standard role? maybe from link:labelLink at doc top?
+                    labelMap['XLinkRole'] = link_label.getparent().get('{http://www.w3.org/1999/xlink}role')
+                    #TODO finish when dorette figures this out
+                    labelMap['SrcLocatorRole'] = 'TODO'
+                    labelMap['SrcLocatorLabel'] = fromID
+                    labelMap['DestLocatorRole'] = link_label.get('{http://www.w3.org/1999/xlink}role')
+                    labelMap['DestLocatorLabel'] = toID
+                    labelMap['Arcrole'] = labelArc.get('{http://www.w3.org/1999/xlink}arcrole')
+                    #TODO these are strange, only 1 and 0 in example doc
+                    labelMap['LinkOrder'] = 1
+                    labelMap['Priority'] = 0
+                    labelMap['Use'] = 'optional'
+                    labelMap['Label'] = link_label.text.strip().replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
+                    labelMap['LabelLanguage'] = link_label.get('{http://www.w3.org/XML/1998/namespace}lang')
+                    #update element with ElementLabel
+                    element['ElementLabel'] = labelMap['Label']
+                #write to labels sheet
+                labelsSheet.write(uuid + sep + target + sep)
+                for elementData in ['Element','ElementId',
+                    'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                    'ElementTypeName','ElementSubstitutionGroupURI',
+                    'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                    'ElementAbstract','ElementNillable']:
+                    labelsSheet.write(element[elementData] + sep)
+                for labeldata in ['XLinkRole','SrcLocatorRole',
+                    'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
+                    'Arcrole','LinkOrder','Priority','Use','Label',
+                    'LabelLanguage']:
+                    labelsSheet.write(str(labelMap[labeldata]) + sep)
+                labelsSheet.write('\n')
+                #write to elements sheet
+                elementsSheet.write(uuid + sep + target + sep)
+                for elementData in ['Element','ElementId',
+                    'ElementLabel',
+                    'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                    'ElementTypeName','ElementSubstitutionGroupURI',
+                    'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                    'ElementAbstract','ElementNillable']:
+                        elementsSheet.write(element[elementData] + sep)
+                elementsSheet.write('\n')
+        except Exception as e:
+            with open(labelErrorLog, 'w', encoding='utf-8') as f:
+                f.write(str(target) + '\n\t' + 'label on line:' + \
+                    label.sourceline + '\n\t' + str(e) + '\n')
+            continue
 
 def main():
     print('Options: (v7)')
