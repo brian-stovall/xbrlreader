@@ -626,7 +626,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
             continue
 
 def main():
-    print('Options: (v7)')
+    print('Options: (v7.1)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
