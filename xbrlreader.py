@@ -524,7 +524,7 @@ def processLabels():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
-        processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet)
+        labelsSheet, elementsSheet = processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet)
     with open(storage+'labels.tsv', 'w', encoding='utf-8') as f:
         f.write(labelsSheet.getvalue())
     with open(storage+'elements.tsv', 'w', encoding='utf-8') as f:
@@ -532,14 +532,14 @@ def processLabels():
 
 def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet):
     if os.path.isdir(target):
-        return
+        return (labelsSheet, elementsSheet)
     try:
         xml = xmlFromFile(target)
     except Exception as e:
             print("\nError loading xml from", target, "logged and skipped")
             with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
-            return
+            return (labelsSheet, elementsSheet)
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
         try:
@@ -624,9 +624,10 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
                 f.write(str(target) + '\n\t' + 'label on line:' + \
                     str(label.sourceline) + '\n\t' + str(e) + '\n')
             continue
+    return (labelsSheet, elementsSheet)
 
 def main():
-    print('Options: (v7.2)')
+    print('Options: (v7.3)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
