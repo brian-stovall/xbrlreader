@@ -622,11 +622,11 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
         except Exception as e:
             with open(labelErrorLog, 'w', encoding='utf-8') as f:
                 f.write(str(target) + '\n\t' + 'label on line:' + \
-                    label.sourceline + '\n\t' + str(e) + '\n')
+                    str(label.sourceline) + '\n\t' + str(e) + '\n')
             continue
 
 def main():
-    print('Options: (v7.1)')
+    print('Options: (v7.2)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
