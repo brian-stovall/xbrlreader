@@ -529,6 +529,9 @@ def processLabels():
         f.write(labelsSheet.getvalue())
     with open(storage+'elements.tsv', 'w', encoding='utf-8') as f:
         f.write(elementsSheet.getvalue())
+    #update elements with labels
+    with open(elements_json, 'w', encoding='utf-8') as f:
+        json.dump(elementDict, f, indent=4)
 
 def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet):
     if os.path.isdir(target):
@@ -627,7 +630,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
     return (labelsSheet, elementsSheet)
 
 def main():
-    print('Options: (v7.3)')
+    print('Options: (v7.4)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
