@@ -24,6 +24,7 @@ elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
 superNSmap = {}
+cacheUID = 'DTS'
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -443,7 +444,7 @@ def addToCommentsDoc(uuid, directory, commentsDoc):
     for comment in comments:
         commentsDoc.write(uuid + sep + comment + sep + '\n')
 
-def processLabels():
+def processLabels(processDTS=True):
     completedDownloads = None
     assert os.path.exists(completedDownloadsFile), \
         'tried to build labels doc without any completed DLs'
@@ -470,6 +471,17 @@ def processLabels():
         'LinkOrder','Priority','Use	Label','LabelLanguage']
     labelsSheet.write(sep.join(labelsHeader) + '\n')
     targets = set()
+    #get targets from the cache (process all DTS labels):
+    if processDTS==True:
+        for filename in os.listdir(storage):
+            target = os.path.join(storage, filename)
+            if not os.path.isfile(target):
+                continue
+            if 'tsv' in filename or 'json' in filename or 'txt' in filename \
+                or 'org' in filename:
+                    continue
+            targetNamespace = None
+            targets.add((target, getParentDirectory(target, storage), cacheUID))
     for uuid, directory in completedDownloads:
         for directory, dirname, filenames in os.walk(directory):
           for filename in filenames:
@@ -520,7 +532,6 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
         try:
             element = None
             labelArcs = getTaggedElements(label, '{http://www.xbrl.org/2003/linkbase}labelArc')
-            #print('iterating', len(labelArcs), 'labelarcs')
             for labelArc in labelArcs:
                 fromID = labelArc.get('{http://www.w3.org/1999/xlink}from')
                 authority = ''
@@ -528,14 +539,21 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
                 if '_' in fromID:
                     authority, elementID = (fromID).split('_', maxsplit=1)
                 elementKey = uuid + '-' + authority + ':' + elementID
-                if elementKey in elementDict.keys():
-                    element = elementDict[elementKey]
-                else: #because the xbrl locator system is awful garbage
+                if uuid != cacheUID:
+                    if elementKey in elementDict.keys():
+                        element = elementDict[elementKey]
+                    else: #because the xbrl locator system is awful garbage
+                        for key in elementDict.keys():
+                            if elementID in key and uuid in key:
+                                element = elementDict[key]
+                            if element is not None:
+                                break
+                else:
                     for key in elementDict.keys():
-                        if elementID in key and uuid in key:
-                            element = elementDict[key]
-                        if element is not None:
-                            break
+                            if elementID in key:
+                                element = elementDict[key]
+                            if element is not None:
+                                break
                 assert element is not None, \
                     "didn't find element for label!\n"+target+"\n"+fromID
                 #now get the label stuff:
@@ -595,7 +613,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
     return labelsSheet
 
 def main():
-    print('Options: (v7.6)')
+    print('Options: (v8)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
