@@ -500,11 +500,17 @@ def processLabels():
     with open(elements_json, 'r', encoding='utf-8') as f:
         elementDict = json.load(f)
     labelsSheet = StringIO()
+    '''
     labelsHeader = ['unique_filing_id','LinkbaseSystemId','Element','ElementId',
         'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
         'ElementTypeName','ElementSubstitutionGroupURI',
         'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
         'ElementAbstract','ElementNillable','XLinkRole','SrcLocatorRole',
+        'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
+        'LinkOrder','Priority','Use	Label','LabelLanguage']
+    '''
+    labelsHeader = ['unique_filing_id','LinkbaseSystemId','ElementId',
+        'XLinkRole','SrcLocatorRole',
         'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
         'LinkOrder','Priority','Use	Label','LabelLanguage']
     labelsSheet.write(sep.join(labelsHeader) + '\n')
@@ -600,12 +606,15 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
                     element['ElementLabel'] = labelMap['Label']
                 #write to labels sheet
                 labelsSheet.write(uuid + sep + target + sep)
+                '''
                 for elementData in ['Element','ElementId',
                     'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
                     'ElementTypeName','ElementSubstitutionGroupURI',
                     'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
                     'ElementAbstract','ElementNillable']:
                     labelsSheet.write(element[elementData] + sep)
+                '''
+                labelsSheet.write(element['ElementId'] + sep)
                 for labeldata in ['XLinkRole','SrcLocatorRole',
                     'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel',
                     'Arcrole','LinkOrder','Priority','Use','Label',
@@ -630,7 +639,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
     return (labelsSheet, elementsSheet)
 
 def main():
-    print('Options: (v7.4)')
+    print('Options: (v7.5)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
