@@ -39,11 +39,6 @@ def xmlFromFile(filename):
         return ET.parse(storageDict[filename]).getroot()
     return ET.parse(filename).getroot()
 
-def process_filing(directory):
-    '''this takes a directory and builds the output from the files
-    inside'''
-    process_calculation(directory)
-
 def getTaggedElements(parentXML, targetTag):
     '''gets all xml elements of a specific type (tag) from a root object'''
     return [xml for xml in parentXML.iter() if xml.tag == targetTag]
@@ -204,46 +199,6 @@ def process_element(xml, elementDict, targetNamespace, schemaSystemId,
         elementEntry['ElementAbstract'] = \
             xml.get('abstract')
     elementDict[elementKey] = elementEntry
-
-def process_calculation(directory, uniqueID):
-    '''looks for the *cal.xml file and builds the resulting tsv'''
-    headers = {
-        0:'unique_filing_id',
-        1:'LinkbaseSystemId',
-        2:'Element',
-        3:'ElementId',
-        4:'ElementLabel',
-        5:'ElementPrefix',
-        6:'ElementURI',
-        7:'ElementName',
-        8:'ElementTypeURI',
-        9:'ElementTypeName',
-        10:'ElementSubstitutionGroupName',
-        11:'ElementPeriodType',
-        12:'ElementBalance',
-        13:'ElementAbstract',
-        14:'ElementNillable',
-        15:'ParentElement',
-        16:'XLinkRole',
-        17:'SrcLocatorRole',
-        18:'SrcLocatorLabel',
-        19:'DestLocatorRole',
-        20:'DestLocatorLabel',
-        21:'Arcrole',
-        22:'LinkOrder',
-        23:'Priority',
-        24:'Use',
-        25:'Weight'
-    }
-    candidates = list()
-    for directory, dirname, filenames in os.walk(directory):
-      for filename in filenames:
-        if 'cal.xml' in filename:
-            candidates.append(os.path.join(directory, filename))
-    assert len(candidates) == 1, \
-        'got other than one candidate for calculation linkbase:\n' + \
-            str(candidates)
-    root = xmlFromFile(candidates[0])
 
 def dictToCSV(dictionary, outfile, dontwrite=[]):
     with open(outfile, 'w', encoding='utf-8') as output:
@@ -514,14 +469,6 @@ def processLabels():
         'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
         'LinkOrder','Priority','Use	Label','LabelLanguage']
     labelsSheet.write(sep.join(labelsHeader) + '\n')
-    elementsSheet = StringIO()
-    elementsHeader = ['unique_filing_id', 'SchemaSystemId', 'Element','ElementId',
-                'ElementLabel',
-                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
-                'ElementTypeName','ElementSubstitutionGroupURI',
-                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
-                'ElementAbstract','ElementNillable']
-    elementsSheet.write(sep.join(elementsHeader) + '\n')
     targets = set()
     for uuid, directory in completedDownloads:
         for directory, dirname, filenames in os.walk(directory):
@@ -530,25 +477,44 @@ def processLabels():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentdir, uuid in targets:
-        labelsSheet, elementsSheet = processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet)
+        labelsSheet = processLabel(labelsSheet, target, parentdir, uuid, elementDict)
     with open(storage+'labels.tsv', 'w', encoding='utf-8') as f:
         f.write(labelsSheet.getvalue())
-    with open(storage+'elements.tsv', 'w', encoding='utf-8') as f:
-        f.write(elementsSheet.getvalue())
     #update elements with labels
     with open(elements_json, 'w', encoding='utf-8') as f:
         json.dump(elementDict, f, indent=4)
+    #now write elements sheet
+    elementsSheet = StringIO()
+    elementsHeader = ['unique_filing_id', 'SchemaSystemId', 'Element','ElementId',
+                'ElementLabel',
+                'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+                'ElementTypeName','ElementSubstitutionGroupURI',
+                'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+                'ElementAbstract','ElementNillable']
+    elementsSheet.write(sep.join(elementsHeader) + '\n')
+    for element in elementDict.values():
+        elementsSheet.write(uuid + sep + target + sep)
+        for elementData in ['Element','ElementId',
+            'ElementLabel',
+            'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
+            'ElementTypeName','ElementSubstitutionGroupURI',
+            'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
+            'ElementAbstract','ElementNillable']:
+                elementsSheet.write(str(element[elementData]) + sep)
+        elementsSheet.write('\n')
+    with open(storage+'elements.tsv', 'w', encoding='utf-8') as f:
+        f.write(elementsSheet.getvalue())
 
-def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsSheet):
+def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
     if os.path.isdir(target):
-        return (labelsSheet, elementsSheet)
+        return labelsSheet
     try:
         xml = xmlFromFile(target)
     except Exception as e:
             print("\nError loading xml from", target, "logged and skipped")
             with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
-            return (labelsSheet, elementsSheet)
+            return labelsSheet
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
         try:
@@ -621,25 +587,15 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict, elementsShee
                     'LabelLanguage']:
                     labelsSheet.write(str(labelMap[labeldata]) + sep)
                 labelsSheet.write('\n')
-                #write to elements sheet
-                elementsSheet.write(uuid + sep + target + sep)
-                for elementData in ['Element','ElementId',
-                    'ElementLabel',
-                    'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
-                    'ElementTypeName','ElementSubstitutionGroupURI',
-                    'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
-                    'ElementAbstract','ElementNillable']:
-                        elementsSheet.write(element[elementData] + sep)
-                elementsSheet.write('\n')
         except Exception as e:
             with open(labelErrorLog, 'w', encoding='utf-8') as f:
                 f.write(str(target) + '\n\t' + 'label on line:' + \
                     str(label.sourceline) + '\n\t' + str(e) + '\n')
             continue
-    return (labelsSheet, elementsSheet)
+    return labelsSheet
 
 def main():
-    print('Options: (v7.5)')
+    print('Options: (v7.6)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
