@@ -20,6 +20,7 @@ downloadErrorLog = storage + 'downloadErrorLog.txt'
 commentsErrorLog = storage + 'commentsErrorLog.txt'
 badXMLErrorLog = storage + 'badXMLErrorLog.txt'
 labelErrorLog = storage + 'labelErrors.txt'
+badIF_ErrorLog = storage + 'inlineFactErrors.txt'
 elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
@@ -612,12 +613,105 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
             continue
     return labelsSheet
 
+def processInlineFacts():
+    completedDownloads = None
+    assert os.path.exists(completedDownloadsFile), \
+        'tried to build labels doc without any completed DLs'
+    with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
+        completedDownloads = json.load(f)
+    elementDict = None
+    assert os.path.exists(elements_json), \
+        'tried to build labels doc without any element map'
+    with open(elements_json, 'r', encoding='utf-8') as f:
+        elementDict = json.load(f)
+    ifSheet = StringIO()
+    ifSheetHeader = [ 'unique_filing_id',
+        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
+        'Sign','SignChar','FootnoteRefs','InstanceSystemId','ElementId',
+        'Value','Tuple','Precision','Decimals','Nil','ContextId',
+        'Period','StartDate','EndDate','Identifier','Scheme','Segment',
+        'Scenario','UnitId','UnitContent'
+        ]
+    ifSheet.write(sep.join(ifSheetHeader) + '\n')
+    targets = set()
+    for uuid, directory in completedDownloads:
+        for directory, dirname, filenames in os.walk(directory):
+          for filename in filenames:
+            targetNamespace = None
+            target = os.path.join(directory, filename)
+            targets.add((target, getParentDirectory(target, directory), uuid))
+    for target, parentDirectory, uniqueID in targets:
+        ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
+
+def processInlineFact(ifSheet, uniqueID, target):
+    contextMap = None
+    if os.path.isdir(target):
+        return ifSheet
+    try:
+        xml = xmlFromFile(target)
+    except Exception as e:
+        print("\nError loading inlineFact from", target, "logged and skipped")
+        with open(badIF_ErrorLog, 'w', encoding='utf-8') as f:
+            f.write(str(target) + '\t\n' + str(e) + '\n')
+        return ifSheet
+    nonFractions = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonFraction')
+    footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
+    relationships = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}relationship')
+    nonNumerics = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonNumeric')
+    if len(nonFractions) > 0:
+        print('nonFractions', len(nonFractions))
+        print('footnotes', len(footnotes))
+        print('relationships', len(relationships))
+        print('nonNumerics', len(nonNumerics))
+    for nonFraction in nonFractions:
+        if contextMap is None:
+            processContexts(xml)
+        details = {}
+        ifSheet.write(uniqueID + sep + target + sep)
+        details['Type'] = 'nonFraction'
+        if 'ishiddenelement' not in nonFraction.keys():
+            details['Hidden'] = 'FALSE'
+        else:
+            details['Hidden'] = nonFraction.get('ishiddenelement')
+        details['Content'] = nonFraction.text
+        details['Format'] = nonFraction.get('format')
+        details['Scale'] = nonFraction.get('scale')
+        if 'sign' not in nonFraction.keys:
+            details['Sign'] = ''
+            details['SignChar'] = ''
+        else:
+            details['Sign'] = nonFraction.get('sign')
+            if details['Sign'] == '-':
+                details['SignChar'] = '('
+            else:
+                details['SignChar'] = ''
+        details['FootnoteRefs'] = ''
+        details['InstanceSystemId'] = 'todo'
+        details['ElementId'] = 'from context'
+        ifSheetHeader = [ 'unique_filing_id',
+        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
+        'Sign','SignChar','FootnoteRefs','InstanceSystemId','ElementId',
+        'Value','Tuple','Precision','Decimals','Nil','ContextId',
+        'Period','StartDate','EndDate','Identifier','Scheme','Segment',
+        'Scenario','UnitId','UnitContent'
+        ]
+    return ifSheet
+
+def processContexts(xml):
+    contextMap = {}
+    contexts = getTaggedElements(xml,'{http://www.xbrl.org/2003/instance}context')
+    print('# contexts', len(contexts))
+    #TODO - work on contexts
+    assert False, "start here"
+    return contextMap
+
 def main():
-    print('Options: (v8)')
+    print('Options: (v9.01)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
     print('\t4 - Create labels.tsv and elments.tsv')
+    print('\t5 - Process inline facts')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
@@ -627,6 +721,8 @@ def main():
         buildElementMap()
     elif choice == '4':
         processLabels()
+    elif choice == '5':
+        processInlineFacts()
 
 main()
 
