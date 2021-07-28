@@ -627,9 +627,9 @@ def processInlineFacts():
     ifSheet = StringIO()
     ifSheetHeader = [ 'unique_filing_id',
         'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
-        'Sign','SignChar','FootnoteRefs','InstanceSystemId','ElementId',
+        'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
-        'Period','StartDate','EndDate','Identifier','Scheme','Segment',
+        'Period','StartDate','EndDate','Identifier','Scheme',
         'Scenario','UnitId','UnitContent'
         ]
     ifSheet.write(sep.join(ifSheetHeader) + '\n')
@@ -642,6 +642,8 @@ def processInlineFacts():
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentDirectory, uniqueID in targets:
         ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
+    with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
+        f.write(ifSheet.getvalue())
 
 def processInlineFact(ifSheet, uniqueID, target):
     contextMap = None
@@ -683,7 +685,7 @@ def processInlineFact(ifSheet, uniqueID, target):
             details['Nil'] = nonFraction.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
         details['Content'] = nonFraction.text
         details['Format'] = nonFraction.get('format')
-        details['Scale'] = 0 #sometimes scale does not exist :(
+        details['Scale'] = str(0) #sometimes scale does not exist :(
         if 'scale' in nonFraction.keys():
             details['Scale'] = nonFraction.get('scale')
         details['Decimals'] = nonFraction.get('decimals')
@@ -712,15 +714,23 @@ def processInlineFact(ifSheet, uniqueID, target):
         'Scenario']:
             details[data] = context[data]
         details['Element'] = nonFraction.get('name')
-        details['UnitId'] = 'todo'
-        details['UnitContent'] = 'todo'
-        for data in [ 'unique_filing_id',
-        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
+        unitRef = nonFraction.get('unitRef')
+        assert unitRef in unitMap.keys(), \
+            'could not find unit for unitRef ' + unitRef
+        details['UnitId'] = unitMap[unitRef]['UnitId']
+        details['UnitContent'] = unitMap[unitRef]['UnitContent']
+        for k, v in details.items():
+            if not isinstance(v, str):
+                print('not a string: ', k, type(v))
+                assert False
+        for data in [
+        'Type','Hidden','Content','Format','Scale',
         'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
         'Period','StartDate','EndDate','Identifier','Scheme',
         'Scenario','UnitId','UnitContent']:
-            doit = details[data]
+            ifSheet.write(details[data].replace('\t','    ').replace('\n', ' ').replace('\r', ' ') + sep)
+        ifSheet.write('\n')
     return ifSheet
 
 def processContexts(xml):
@@ -766,7 +776,7 @@ def processContexts(xml):
         scenarios = getTaggedElements(context,'{http://www.xbrl.org/2003/instance}scenario')
         assert len(scenarios) < 2, \
             'got more than 1 scenario when processing context ' + conID
-        scenario = ''
+        result = ''
         if len(scenarios) == 1:
             result = []
             scenario = scenarios[0]
@@ -782,15 +792,31 @@ def processContexts(xml):
             'Identifier' : identifier,
             'Scheme' : scheme,
             'Segment' : '',
-            'Scenario' : scenario
+            'Scenario' : result
         }
     return contextMap
 
 def processUnits(xml):
-    pass
+    unitMap = {}
+    units = getTaggedElements(xml,'{http://www.xbrl.org/2003/instance}unit')
+    for unit in units:
+        unitID = unit.get('id')
+        measures = getTaggedElements(unit,'{http://www.xbrl.org/2003/instance}measure')
+        content = 'ERROR'
+        if len(measures) == 1:
+            content = measures[0].text
+        else: #numerator/denominator form
+            numerator = getTaggedElements(unit, '{http://www.xbrl.org/2003/instance}unitNumerator')[0][0].text
+            denominator = getTaggedElements(unit, '{http://www.xbrl.org/2003/instance}unitDenominator')[0][0].text
+            content = numerator + ' / ' + denominator
+        unitMap[unitID] = {
+            'UnitId' : unitID,
+            'UnitContent' : content
+        }
+    return unitMap
 
 def main():
-    print('Options: (v9.2)')
+    print('Options: (v9.3)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
