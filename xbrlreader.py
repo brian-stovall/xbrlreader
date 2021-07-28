@@ -644,8 +644,8 @@ def processInlineFacts():
         ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
 
 def processInlineFact(ifSheet, uniqueID, target):
-    print('process ix target:\n\t', target)
     contextMap = None
+    unitMap = None
     if os.path.isdir(target):
         return ifSheet
     try:
@@ -666,18 +666,28 @@ def processInlineFact(ifSheet, uniqueID, target):
         print('nonNumerics', len(nonNumerics))
     for nonFraction in nonFractions:
         if contextMap is None:
-            processContexts(xml)
+            contextMap = processContexts(xml)
+        if unitMap is None:
+            unitMap = processUnits(xml)
         details = {}
+        details['unique_filing_id'] = uniqueID
+        details['InlineXBRLSystemId'] = target
         ifSheet.write(uniqueID + sep + target + sep)
         details['Type'] = 'nonFraction'
         if 'ishiddenelement' not in nonFraction.keys():
             details['Hidden'] = 'FALSE'
         else:
             details['Hidden'] = nonFraction.get('ishiddenelement')
+        details['Nil'] = 'FALSE'
+        if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonFraction.keys():
+            details['Nil'] = nonFraction.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
         details['Content'] = nonFraction.text
         details['Format'] = nonFraction.get('format')
-        details['Scale'] = nonFraction.get('scale')
-        if 'sign' not in nonFraction.keys:
+        details['Scale'] = 0 #sometimes scale does not exist :(
+        if 'scale' in nonFraction.keys():
+            details['Scale'] = nonFraction.get('scale')
+        details['Decimals'] = nonFraction.get('decimals')
+        if 'sign' not in nonFraction.keys():
             details['Sign'] = ''
             details['SignChar'] = ''
         else:
@@ -686,16 +696,31 @@ def processInlineFact(ifSheet, uniqueID, target):
                 details['SignChar'] = '('
             else:
                 details['SignChar'] = ''
+        details['Value'] = details['Sign'] + details['Content'] + \
+            '0' * int(details['Scale'])
+        details['Value'] = details['Value'].replace(' ', '')
         details['FootnoteRefs'] = ''
         details['InstanceSystemId'] = 'todo'
-        details['ElementId'] = 'from context'
-        ifSheetHeader = [ 'unique_filing_id',
+        details['Tuple'] = ''
+        details['Precision'] = ''
+        contextRef = nonFraction.get('contextRef')
+        assert contextRef in contextMap.keys(), \
+            "couldn't find contextRef in contextMap:\n\t" + \
+                contextRef
+        context = contextMap[contextRef]
+        for data in ['ContextId', 'Period','StartDate','EndDate','Identifier','Scheme',
+        'Scenario']:
+            details[data] = context[data]
+        details['Element'] = nonFraction.get('name')
+        details['UnitId'] = 'todo'
+        details['UnitContent'] = 'todo'
+        for data in [ 'unique_filing_id',
         'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
-        'Sign','SignChar','FootnoteRefs','InstanceSystemId','ElementId',
+        'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
         'Period','StartDate','EndDate','Identifier','Scheme',
-        'Scenario','UnitId','UnitContent'
-        ]
+        'Scenario','UnitId','UnitContent']:
+            doit = details[data]
     return ifSheet
 
 def processContexts(xml):
@@ -748,8 +773,21 @@ def processContexts(xml):
             for child in scenario:
                 result.append(ET.tostring(child, encoding='utf-8').decode('utf-8'))
             result = ''.join(result).replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
-
+        #now collect it all into the map
+        contextMap[conID] = {
+            'ContextId' : conID,
+            'Period' : period,
+            'StartDate' : startDate,
+            'EndDate' : endDate,
+            'Identifier' : identifier,
+            'Scheme' : scheme,
+            'Segment' : '',
+            'Scenario' : scenario
+        }
     return contextMap
+
+def processUnits(xml):
+    pass
 
 def main():
     print('Options: (v9.2)')
