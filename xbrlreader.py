@@ -644,6 +644,7 @@ def processInlineFacts():
         ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
 
 def processInlineFact(ifSheet, uniqueID, target):
+    print('process ix target:\n\t', target)
     contextMap = None
     if os.path.isdir(target):
         return ifSheet
@@ -692,7 +693,7 @@ def processInlineFact(ifSheet, uniqueID, target):
         'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
         'Sign','SignChar','FootnoteRefs','InstanceSystemId','ElementId',
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
-        'Period','StartDate','EndDate','Identifier','Scheme','Segment',
+        'Period','StartDate','EndDate','Identifier','Scheme',
         'Scenario','UnitId','UnitContent'
         ]
     return ifSheet
@@ -701,12 +702,57 @@ def processContexts(xml):
     contextMap = {}
     contexts = getTaggedElements(xml,'{http://www.xbrl.org/2003/instance}context')
     print('# contexts', len(contexts))
-    #TODO - work on contexts
-    assert False, "start here"
+    for context in contexts:
+        conID = context.get('id')
+        ents = getTaggedElements(context,'{http://www.xbrl.org/2003/instance}entity')
+        assert len(ents) == 1, \
+            'found other than one (' + str(len(ents)) +') entity when processing context ' + conID
+        ent = ents[0]
+        identifiers = getTaggedElements(ent, '{http://www.xbrl.org/2003/instance}identifier')
+        assert len(identifiers) == 1, \
+            'found other than one entity identifier when processing context ' + conID
+        idXml = identifiers[0]
+        identifier = idXml.text
+        scheme = idXml.get('scheme')
+        endDate = ''
+        startDate = ''
+        periods = getTaggedElements(context,'{http://www.xbrl.org/2003/instance}period')
+        assert len(periods) == 1, \
+            'found other than one entity period when processing context ' + conID
+        period = periods[0]
+        instants = getTaggedElements(period, '{http://www.xbrl.org/2003/instance}instant')
+        assert len(instants) < 2, \
+             'found more than one period instant when processing context ' + conID
+        if len(instants) == 1: #instant style period
+            endDate = instants[0].text
+        else: #start date/end date style
+            startDates = getTaggedElements(period,'{http://www.xbrl.org/2003/instance}startDate')
+            assert len(startDates) == 1, \
+                'got other than 1 startDate when processing context ' + conID
+            if len(startDates) == 1:
+                startDate = startDates[0].text
+            endDates = getTaggedElements(period,'{http://www.xbrl.org/2003/instance}endDate')
+            assert len(endDates) == 1, \
+                'found other than one endDate when processing context ' + conID
+            endDate = endDates[0].text
+        period = endDate
+        if startDate:
+            period = startDate + ',' + endDate
+        scenarios = getTaggedElements(context,'{http://www.xbrl.org/2003/instance}scenario')
+        assert len(scenarios) < 2, \
+            'got more than 1 scenario when processing context ' + conID
+        scenario = ''
+        if len(scenarios) == 1:
+            result = []
+            scenario = scenarios[0]
+            for child in scenario:
+                result.append(ET.tostring(child, encoding='utf-8').decode('utf-8'))
+            result = ''.join(result).replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
+
     return contextMap
 
 def main():
-    print('Options: (v9.01)')
+    print('Options: (v9.2)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
