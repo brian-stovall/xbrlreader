@@ -81,7 +81,7 @@ def process_elements(targets):
         except Exception as e:
             print("\nError loading xml from", target, "logged and skipped")
             errorlog.write(str(target) + '\t\n' + str(e) + '\n')
-            with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
+            with open(badXMLErrorLog, 'a', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
             continue
         targetNamespace = root.get('targetNamespace')
@@ -295,7 +295,7 @@ def filingDownloader():
         completedDownloads = []
     entriesProcessed = 0
     errorlog = StringIO()
-    with open(downloadErrorLog, 'w', encoding='utf-8') as f:
+    with open(downloadErrorLog, 'a', encoding='utf-8') as f:
         f.write('')
     for entry in list(manifest.keys()):
         entriesProcessed += 1
@@ -306,7 +306,7 @@ def filingDownloader():
             print("Error with filing, logged")
             errorlog.write(str(entriesProcessed) + '\t\n' + str(e) + '\t\n' +
                 str(manifest[entry]['archive']) + '\n')
-            with open(downloadErrorLog, 'w', encoding='utf-8') as f:
+            with open(downloadErrorLog, 'a', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
 
 
@@ -379,7 +379,7 @@ def processComments():
     commentsDoc.write(header)
     soFar = 0
     errorlog = StringIO()
-    with open(commentsErrorLog, 'w', encoding='utf-8') as f:
+    with open(commentsErrorLog, 'a', encoding='utf-8') as f:
         f.write('')
     for uuid, folder in completedDownloads:
         soFar += 1
@@ -389,7 +389,7 @@ def processComments():
         except Exception as e:
             print("Error getting comments, logged")
             errorlog.write(str(folder) + '\t\n' + str(e)  + '\n')
-    with open(commentsErrorLog, 'w', encoding='utf-8') as f:
+    with open(commentsErrorLog, 'a', encoding='utf-8') as f:
         f.write(errorlog.getvalue())
     filename = outputFolder +'comments.tsv'
     with open(filename, 'w', encoding='utf-8') as f:
@@ -525,7 +525,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
         xml = xmlFromFile(target)
     except Exception as e:
             print("\nError loading xml from", target, "logged and skipped")
-            with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
+            with open(badXMLErrorLog, 'a', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
             return labelsSheet
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
@@ -607,7 +607,7 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
                     labelsSheet.write(str(labelMap[labeldata]) + sep)
                 labelsSheet.write('\n')
         except Exception as e:
-            with open(labelErrorLog, 'w', encoding='utf-8') as f:
+            with open(labelErrorLog, 'a', encoding='utf-8') as f:
                 f.write(str(target) + '\n\t' + 'label on line:' + \
                     str(label.sourceline) + '\n\t' + str(e) + '\n')
             continue
@@ -645,7 +645,7 @@ def processInlineFacts():
             ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
         except Exception as e:
             print("\nError processing inlineFact from", target, "logged and skipped")
-            with open(badIF_ErrorLog, 'w', encoding='utf-8') as f:
+            with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
     with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
         f.write(ifSheet.getvalue())
@@ -659,7 +659,7 @@ def processInlineFact(ifSheet, uniqueID, target):
         xml = xmlFromFile(target)
     except Exception as e:
         print("\nError loading inlineFact from", target, "logged and skipped")
-        with open(badIF_ErrorLog, 'w', encoding='utf-8') as f:
+        with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
             f.write(str(target) + '\t\n' + str(e) + '\n')
         return ifSheet
     nonFractions = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonFraction')
@@ -747,8 +747,10 @@ def processInlineFact(ifSheet, uniqueID, target):
             details['Nil'] = 'FALSE'
             if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonNumeric.keys():
                 details['Nil'] = nonNumeric.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
-            #todo, follow continuation chains
-            value = 'todo'
+            #follow continuation chains
+            value = continuationReader(nonNumeric, xml)
+            details['Content'] = value
+            details['Value'] = value
             contextRef = nonNumeric.get('contextRef')
             assert contextRef in contextMap.keys(), \
                 "couldn't find contextRef in contextMap:\n\t" + \
@@ -770,6 +772,23 @@ def processInlineFact(ifSheet, uniqueID, target):
                 ifSheet.write(cell + sep)
             ifSheet.write('\n')
     return ifSheet
+
+def continuationReader(target, parentXml, valueSoFar=''):
+    valueSoFar += target.text
+    for child in target:
+        valueSoFar += child.text
+    if 'continuedAt' not in target.keys():
+        return valueSoFar
+    continueID = target.get('continuedAt')
+    continuationElems = parentXml.xpath("//ix:continuation[id='"+continueID+"']",
+        namespaces = {
+            'ix': 'http://www.xbrl.org/2013/inlineXBRL'
+        })
+    assert len(continuationElems) == 1, \
+        "Couldn't get continuation in " + target + " for id " + continueID
+    return continuationReader(continuationElems[0], parentXml, valueSoFar)
+
+
 
 def processContexts(xml):
     contextMap = {}
@@ -854,7 +873,7 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.5)')
+    print('Options: (v9.7)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
