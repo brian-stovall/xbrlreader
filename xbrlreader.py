@@ -641,7 +641,12 @@ def processInlineFacts():
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentDirectory, uniqueID in targets:
-        ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
+        try:
+            ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
+        except Exception as e:
+            print("\nError processing inlineFact from", target, "logged and skipped")
+            with open(badIF_ErrorLog, 'w', encoding='utf-8') as f:
+                f.write(str(target) + '\t\n' + str(e) + '\n')
     with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
         f.write(ifSheet.getvalue())
 
@@ -661,11 +666,13 @@ def processInlineFact(ifSheet, uniqueID, target):
     footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
     relationships = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}relationship')
     nonNumerics = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonNumeric')
+    '''
     if len(nonFractions) > 0:
         print('nonFractions', len(nonFractions))
         print('footnotes', len(footnotes))
         print('relationships', len(relationships))
         print('nonNumerics', len(nonNumerics))
+    '''
     for nonFraction in nonFractions:
         if contextMap is None:
             contextMap = processContexts(xml)
@@ -693,7 +700,7 @@ def processInlineFact(ifSheet, uniqueID, target):
             details['Sign'] = ''
             details['SignChar'] = ''
         else:
-            details['Sign'] = nonFraction.get('sign')
+            details['Sign'] = nonFraction.get('sign', default='')
             if details['Sign'] == '-':
                 details['SignChar'] = '('
             else:
@@ -736,7 +743,7 @@ def processInlineFact(ifSheet, uniqueID, target):
 def processContexts(xml):
     contextMap = {}
     contexts = getTaggedElements(xml,'{http://www.xbrl.org/2003/instance}context')
-    print('# contexts', len(contexts))
+    #print('# contexts', len(contexts))
     for context in contexts:
         conID = context.get('id')
         ents = getTaggedElements(context,'{http://www.xbrl.org/2003/instance}entity')
@@ -816,7 +823,7 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.3)')
+    print('Options: (v9.4)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
@@ -833,7 +840,6 @@ def main():
         processLabels()
     elif choice == '5':
         processInlineFacts()
-
 main()
 
 
