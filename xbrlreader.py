@@ -666,13 +666,6 @@ def processInlineFact(ifSheet, uniqueID, target):
     footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
     relationships = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}relationship')
     nonNumerics = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonNumeric')
-    '''
-    if len(nonFractions) > 0:
-        print('nonFractions', len(nonFractions))
-        print('footnotes', len(footnotes))
-        print('relationships', len(relationships))
-        print('nonNumerics', len(nonNumerics))
-    '''
     for nonFraction in nonFractions:
         if contextMap is None:
             contextMap = processContexts(xml)
@@ -738,6 +731,44 @@ def processInlineFact(ifSheet, uniqueID, target):
         'Scenario','UnitId','UnitContent']:
             ifSheet.write(details[data].replace('\t','    ').replace('\n', ' ').replace('\r', ' ') + sep)
         ifSheet.write('\n')
+        for nonNumeric in nonNumerics:
+            if contextMap is None:
+                contextMap = processContexts(xml)
+            details = {}
+            details['unique_filing_id'] = uniqueID
+            details['InlineXBRLSystemId'] = target
+            ifSheet.write(uniqueID + sep + target + sep)
+            details['Type'] = 'nonNumeric'
+            if 'ishiddenelement' not in nonNumeric.keys():
+                details['Hidden'] = 'FALSE'
+            else:
+                details['Hidden'] = nonNumeric.get('ishiddenelement')
+            details['Element'] = nonNumeric.get('name')
+            details['Nil'] = 'FALSE'
+            if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonNumeric.keys():
+                details['Nil'] = nonNumeric.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
+            #todo, follow continuation chains
+            value = 'todo'
+            contextRef = nonNumeric.get('contextRef')
+            assert contextRef in contextMap.keys(), \
+                "couldn't find contextRef in contextMap:\n\t" + \
+                contextRef
+            context = contextMap[contextRef]
+            for data in ['ContextId', 'Period','StartDate','EndDate','Identifier','Scheme',
+            'Scenario']:
+                details[data] = context[data]
+            details['InstanceSystemId'] = 'todo'
+            for data in [
+            'Type','Hidden','Content','Format','Scale',
+            'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
+            'Value','Tuple','Precision','Decimals','Nil','ContextId',
+            'Period','StartDate','EndDate','Identifier','Scheme',
+            'Scenario','UnitId','UnitContent']:
+                cell = ''
+                if data in details.keys():
+                    cell = details[data].replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
+                ifSheet.write(cell + sep)
+            ifSheet.write('\n')
     return ifSheet
 
 def processContexts(xml):
@@ -823,7 +854,7 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.4)')
+    print('Options: (v9.5)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
