@@ -420,7 +420,6 @@ def buildElementMap():
                 targets.add((target, getParentDirectory(target, directory), uuid))
     process_elements(targets)
     print('\nCompleted map, contains:', len(elementDict.keys()), 'elements')
-    #dictToCSV(elementDict, storage + 'elements.tsv')
     with open(cacheData, 'w', encoding='utf-8') as outfile:
         json.dump(storageDict, outfile, indent=4)
     with open(elements_json, 'w', encoding='utf-8') as f:
@@ -506,6 +505,7 @@ def processLabels(processDTS=True):
                 'ElementAbstract','ElementNillable']
     elementsSheet.write(sep.join(elementsHeader) + '\n')
     for element in elementDict.values():
+        uuid = element['unique_filing_id']
         elementsSheet.write(uuid + sep + target + sep)
         for elementData in ['Element','ElementId',
             'ElementLabel',
@@ -672,8 +672,8 @@ def processInlineFact(ifSheet, uniqueID, target):
         if unitMap is None:
             unitMap = processUnits(xml)
         details = {}
-        details['unique_filing_id'] = uniqueID
-        details['InlineXBRLSystemId'] = target
+        details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
+        details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
         ifSheet.write(uniqueID + sep + target + sep)
         details['Type'] = 'nonFraction'
         if 'ishiddenelement' not in nonFraction.keys():
@@ -729,14 +729,14 @@ def processInlineFact(ifSheet, uniqueID, target):
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
         'Period','StartDate','EndDate','Identifier','Scheme',
         'Scenario','UnitId','UnitContent']:
-            ifSheet.write(details[data].replace('\t','    ').replace('\n', ' ').replace('\r', ' ') + sep)
+            ifSheet.write(details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep)
         ifSheet.write('\n')
         for nonNumeric in nonNumerics:
             if contextMap is None:
                 contextMap = processContexts(xml)
             details = {}
-            details['unique_filing_id'] = uniqueID
-            details['InlineXBRLSystemId'] = target
+            details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
+            details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
             ifSheet.write(uniqueID + sep + target + sep)
             details['Type'] = 'nonNumeric'
             if 'ishiddenelement' not in nonNumeric.keys():
@@ -768,7 +768,7 @@ def processInlineFact(ifSheet, uniqueID, target):
             'Scenario','UnitId','UnitContent']:
                 cell = ''
                 if data in details.keys():
-                    cell = details[data].replace('\t','    ').replace('\n', ' ').replace('\r', ' ')
+                    cell = details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ')
                 ifSheet.write(cell + sep)
             ifSheet.write('\n')
     return ifSheet
@@ -873,11 +873,11 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.7)')
+    print('Options: (v9.8)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
-    print('\t4 - Create labels.tsv and elments.tsv')
+    print('\t4 - Create labels.tsv and elements.tsv')
     print('\t5 - Process inline facts')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
