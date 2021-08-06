@@ -2,7 +2,7 @@ from lxml import etree as ET
 from urllib.request import urlopen, urlparse, urlretrieve
 from urllib.parse import quote, unquote
 import requests
-import os, json, time, zipfile
+import os, json, time, zipfile, traceback
 from io import StringIO
 
 elementDict = {}
@@ -66,6 +66,8 @@ def process_elements(targets):
     toProcess = set()
     namespacePrefix = None
     errorlog = StringIO()
+    with open(badXMLErrorLog, 'w', encoding='utf-8') as f:
+                f.write('')
     for target, parentDirectory, uniqueID in targets:
         assert parentDirectory is not None, target + 'has no pd'
         target = fixFileReference(target, parentDirectory)
@@ -615,6 +617,8 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
 
 def processInlineFacts():
     completedDownloads = None
+    with open(badIF_ErrorLog, 'w', encoding='utf-8') as f:
+                f.write('')
     assert os.path.exists(completedDownloadsFile), \
         'tried to build labels doc without any completed DLs'
     with open(completedDownloadsFile, 'r', encoding='utf-8') as f:
@@ -646,8 +650,9 @@ def processInlineFacts():
             ifSheet.write(ifBuffer.getvalue())
         except Exception as e:
             print("\nError processing inlineFact from", target, "logged and skipped")
+            tb_str = ''.join(traceback.format_tb(e.__traceback__))
             with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
-                f.write(str(target) + '\t\n' + str(e) + '\n')
+                f.write(str(target) + '\t\n' + str(e) + '\n' + tb_str +'\n')
     with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
         f.write(ifSheet.getvalue())
 
@@ -776,9 +781,11 @@ def processInlineFact(uniqueID, target):
     return ifBuffer
 
 def continuationReader(target, parentXml, valueSoFar=''):
-    valueSoFar += target.text
+    if target.text:
+        valueSoFar += target.text
     for child in target:
-        valueSoFar += child.text
+        if child.text:
+            valueSoFar += child.text
     if 'continuedAt' not in target.keys():
         return valueSoFar
     continueID = target.get('continuedAt')
