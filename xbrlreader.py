@@ -642,7 +642,8 @@ def processInlineFacts():
             targets.add((target, getParentDirectory(target, directory), uuid))
     for target, parentDirectory, uniqueID in targets:
         try:
-            ifSheet = processInlineFact(ifSheet, uniqueID, target)#, parentdir, uuid, elementDict)
+            ifBuffer = processInlineFact(uniqueID, target)
+            ifSheet.write(ifBuffer.getvalue())
         except Exception as e:
             print("\nError processing inlineFact from", target, "logged and skipped")
             with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
@@ -650,18 +651,19 @@ def processInlineFacts():
     with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
         f.write(ifSheet.getvalue())
 
-def processInlineFact(ifSheet, uniqueID, target):
+def processInlineFact(uniqueID, target):
     contextMap = None
     unitMap = None
+    ifBuffer = StringIO()
     if os.path.isdir(target):
-        return ifSheet
+        return ifBuffer
     try:
         xml = xmlFromFile(target)
     except Exception as e:
         print("\nError loading inlineFact from", target, "logged and skipped")
         with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
             f.write(str(target) + '\t\n' + str(e) + '\n')
-        return ifSheet
+        return ifBuffer
     nonFractions = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonFraction')
     footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
     relationships = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}relationship')
@@ -674,7 +676,7 @@ def processInlineFact(ifSheet, uniqueID, target):
         details = {}
         details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
         details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
-        ifSheet.write(uniqueID + sep + target + sep)
+        ifBuffer.write(uniqueID + sep + target + sep)
         details['Type'] = 'nonFraction'
         if 'ishiddenelement' not in nonFraction.keys():
             details['Hidden'] = 'FALSE'
@@ -729,15 +731,15 @@ def processInlineFact(ifSheet, uniqueID, target):
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
         'Period','StartDate','EndDate','Identifier','Scheme',
         'Scenario','UnitId','UnitContent']:
-            ifSheet.write(details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep)
-        ifSheet.write('\n')
+            ifBuffer.write(details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep)
+        ifBuffer.write('\n')
         for nonNumeric in nonNumerics:
             if contextMap is None:
                 contextMap = processContexts(xml)
             details = {}
             details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
             details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
-            ifSheet.write(uniqueID + sep + target + sep)
+            ifBuffer.write(uniqueID + sep + target + sep)
             details['Type'] = 'nonNumeric'
             if 'ishiddenelement' not in nonNumeric.keys():
                 details['Hidden'] = 'FALSE'
@@ -769,9 +771,9 @@ def processInlineFact(ifSheet, uniqueID, target):
                 cell = ''
                 if data in details.keys():
                     cell = details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ')
-                ifSheet.write(cell + sep)
-            ifSheet.write('\n')
-    return ifSheet
+                ifBuffer.write(cell + sep)
+            ifBuffer.write('\n')
+    return ifBuffer
 
 def continuationReader(target, parentXml, valueSoFar=''):
     valueSoFar += target.text
@@ -873,7 +875,7 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.8)')
+    print('Options: (v9.9)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
