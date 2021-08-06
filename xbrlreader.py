@@ -499,7 +499,7 @@ def processLabels(processDTS=True):
         json.dump(elementDict, f, indent=4)
     #now write elements sheet
     elementsSheet = StringIO()
-    elementsHeader = ['unique_filing_id', 'SchemaSystemId', 'Element','ElementId',
+    elementsHeader = ['unique_filing_id', 'SchemaSystemId', 'SchemaTargetNamespace', 'Element','ElementId',
                 'ElementLabel',
                 'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
                 'ElementTypeName','ElementSubstitutionGroupURI',
@@ -507,9 +507,9 @@ def processLabels(processDTS=True):
                 'ElementAbstract','ElementNillable']
     elementsSheet.write(sep.join(elementsHeader) + '\n')
     for element in elementDict.values():
-        uuid = element['unique_filing_id']
-        elementsSheet.write(uuid + sep + target + sep)
-        for elementData in ['Element','ElementId',
+        for elementData in [
+            'unique_filing_id', 'SchemaSystemId',
+            'SchemaTargetNamespace','Element','ElementId',
             'ElementLabel',
             'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
             'ElementTypeName','ElementSubstitutionGroupURI',
@@ -882,7 +882,7 @@ def processUnits(xml):
     return unitMap
 
 def main():
-    print('Options: (v9.9)')
+    print('Options: (v10)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
