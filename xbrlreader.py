@@ -26,6 +26,13 @@ sep = '\t'
 storageDict = None
 superNSmap = {}
 cacheUID = 'DTS'
+ifSheetHeader = [ 'unique_filing_id',
+    'InlineXBRLSystemId', 'FactID', 'Type','Hidden','Content','Format','Scale',
+    'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
+    'Value','Tuple','Precision','Decimals','Nil','ContextId',
+    'Period','StartDate','EndDate','Identifier','Scheme',
+    'Scenario','UnitId','UnitContent'
+    ]
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -629,13 +636,6 @@ def processInlineFacts():
     with open(elements_json, 'r', encoding='utf-8') as f:
         elementDict = json.load(f)
     ifSheet = StringIO()
-    ifSheetHeader = [ 'unique_filing_id',
-        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
-        'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
-        'Value','Tuple','Precision','Decimals','Nil','ContextId',
-        'Period','StartDate','EndDate','Identifier','Scheme',
-        'Scenario','UnitId','UnitContent'
-        ]
     ifSheet.write(sep.join(ifSheetHeader) + '\n')
     targets = set()
     for uuid, directory in completedDownloads:
@@ -657,6 +657,7 @@ def processInlineFacts():
         f.write(ifSheet.getvalue())
 
 def processInlineFact(uniqueID, target):
+    processedFactIDs = set()
     contextMap = None
     unitMap = None
     ifBuffer = StringIO()
@@ -681,7 +682,6 @@ def processInlineFact(uniqueID, target):
         details = {}
         details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
         details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
-        ifBuffer.write(uniqueID + sep + target + sep)
         details['Type'] = 'nonFraction'
         if 'ishiddenelement' not in nonFraction.keys():
             details['Hidden'] = 'FALSE'
@@ -721,6 +721,12 @@ def processInlineFact(uniqueID, target):
         'Scenario']:
             details[data] = context[data]
         details['Element'] = nonFraction.get('name')
+        factID = nonFraction.get('id')
+        details['FactID'] = factID
+        if factID in processedFactIDs:
+            continue
+        else:
+            processedFactIDs.add(factID)
         unitRef = nonFraction.get('unitRef')
         assert unitRef in unitMap.keys(), \
             'could not find unit for unitRef ' + unitRef
@@ -730,8 +736,9 @@ def processInlineFact(uniqueID, target):
             if not isinstance(v, str):
                 print('not a string: ', k, type(v))
                 assert False
+        ifBuffer.write(uniqueID + sep + target + sep)
         for data in [
-        'Type','Hidden','Content','Format','Scale',
+        'FactID', 'Type','Hidden','Content','Format','Scale',
         'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
         'Value','Tuple','Precision','Decimals','Nil','ContextId',
         'Period','StartDate','EndDate','Identifier','Scheme',
@@ -744,13 +751,18 @@ def processInlineFact(uniqueID, target):
             details = {}
             details['unique_filing_id'] = uniqueID.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
             details['InlineXBRLSystemId'] = target.replace('\t',' ').replace('\n', ' ').replace('\r', ' ') + sep
-            ifBuffer.write(uniqueID + sep + target + sep)
             details['Type'] = 'nonNumeric'
             if 'ishiddenelement' not in nonNumeric.keys():
                 details['Hidden'] = 'FALSE'
             else:
                 details['Hidden'] = nonNumeric.get('ishiddenelement')
             details['Element'] = nonNumeric.get('name')
+            factID = nonNumeric.get('id')
+            details['FactID'] = factID
+            if factID in processedFactIDs:
+                continue
+            else:
+                processedFactIDs.add(factID)
             details['Nil'] = 'FALSE'
             if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonNumeric.keys():
                 details['Nil'] = nonNumeric.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
@@ -767,8 +779,9 @@ def processInlineFact(uniqueID, target):
             'Scenario']:
                 details[data] = context[data]
             details['InstanceSystemId'] = 'todo'
+            ifBuffer.write(uniqueID + sep + target + sep)
             for data in [
-            'Type','Hidden','Content','Format','Scale',
+            'FactID', 'Type','Hidden','Content','Format','Scale',
             'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
             'Value','Tuple','Precision','Decimals','Nil','ContextId',
             'Period','StartDate','EndDate','Identifier','Scheme',
@@ -889,21 +902,21 @@ def testInlineFact():
     jsonFacts = None
     with open(jsonFile, 'r') as f:
         jsonFacts = json.load(f)['facts']
+    brianFacts = {}
     ifBuffer = processInlineFact('dummy', inlineFactFile).getvalue()
     errors = StringIO()
-    ifSheetHeader = [ 'unique_filing_id',
-        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
-        'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
-        'Value','Tuple','Precision','Decimals','Nil','ContextId',
-        'Period','StartDate','EndDate','Identifier','Scheme',
-        'Scenario','UnitId','UnitContent'
-        ]
     for entry in ifBuffer.split('\n'):
+        if not entry:
+            continue
         entryData = {}
+        assert len(entry.split('\t')[:-1]) == len(ifSheetHeader), \
+            'header match issue:\n' + str(entry) + '\n' + str(ifSheetHeader)
         for idx, value in enumerate(entry.split('\t')[:-1]):
-                entryData[ifSheetHeader[idx]] = value
-        print(entryData)
-        return False
+            entryData[ifSheetHeader[idx]] = value
+        factID = entryData['FactID']
+        assert factID not in brianFacts.keys(), \
+            'duplicated fact ID ' + factID
+        brianFacts[factID] = entryData
 
 def main():
     print('Options: (v10)')
