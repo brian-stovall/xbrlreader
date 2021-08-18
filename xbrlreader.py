@@ -881,6 +881,30 @@ def processUnits(xml):
         }
     return unitMap
 
+def testInlineFact():
+    inlineFactFile = input('\nLocation of inline fact file:') or \
+        '/home/artiste/Desktop/work-dorette/zalando-2020-12-31.xhtml'
+    jsonFile = input('\nLocation of corresponding json file:') or \
+        '/home/artiste/Desktop/work-dorette/zalando-2020-12-31.json'
+    jsonFacts = None
+    with open(jsonFile, 'r') as f:
+        jsonFacts = json.load(f)['facts']
+    ifBuffer = processInlineFact('dummy', inlineFactFile).getvalue()
+    errors = StringIO()
+    ifSheetHeader = [ 'unique_filing_id',
+        'InlineXBRLSystemId','Type','Hidden','Content','Format','Scale',
+        'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
+        'Value','Tuple','Precision','Decimals','Nil','ContextId',
+        'Period','StartDate','EndDate','Identifier','Scheme',
+        'Scenario','UnitId','UnitContent'
+        ]
+    for entry in ifBuffer.split('\n'):
+        entryData = {}
+        for idx, value in enumerate(entry.split('\t')[:-1]):
+                entryData[ifSheetHeader[idx]] = value
+        print(entryData)
+        return False
+
 def main():
     print('Options: (v10)')
     print('\t1 - Continue downloading filings')
@@ -888,6 +912,7 @@ def main():
     print('\t3 - Regenerate element map')
     print('\t4 - Create labels.tsv and elements.tsv')
     print('\t5 - Process inline facts')
+    print('\t6 - check an inline fact file against json')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
@@ -899,6 +924,8 @@ def main():
         processLabels()
     elif choice == '5':
         processInlineFacts()
+    elif choice == '6':
+        testInlineFact()
 main()
 
 
