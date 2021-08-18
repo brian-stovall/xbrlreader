@@ -917,6 +917,7 @@ def testInlineFact():
         assert factID not in brianFacts.keys(), \
             'duplicated fact ID ' + factID
         brianFacts[factID] = entryData
+    print('# brianFacts',len(brianFacts), '# jsonFacts', len(jsonFacts))
 
 def main():
     print('Options: (v10)')
