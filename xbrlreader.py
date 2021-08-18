@@ -902,7 +902,7 @@ def testInlineFact():
     jsonFacts = None
     with open(jsonFile, 'r') as f:
         jsonFacts = json.load(f)['facts']
-    brianFacts = {}
+    xbrlreaderFacts = {}
     ifBuffer = processInlineFact('dummy', inlineFactFile).getvalue()
     errors = StringIO()
     for entry in ifBuffer.split('\n'):
@@ -914,10 +914,80 @@ def testInlineFact():
         for idx, value in enumerate(entry.split('\t')[:-1]):
             entryData[ifSheetHeader[idx]] = value
         factID = entryData['FactID']
-        assert factID not in brianFacts.keys(), \
+        assert factID not in xbrlreaderFacts.keys(), \
             'duplicated fact ID ' + factID
-        brianFacts[factID] = entryData
-    print('# brianFacts',len(brianFacts), '# jsonFacts', len(jsonFacts))
+        xbrlreaderFacts[factID] = entryData
+    if len(xbrlreaderFacts) != len(jsonFacts):
+        print('mismatch of # facts:')
+        print('# xbrlreaderFacts',len(xbrlreaderFacts), '# jsonFacts', len(jsonFacts))
+        xbrlreaderFactIDs = set(xbrlreaderFacts.keys())
+        jsonFactIDs = set(jsonFacts.keys())
+        xbrlreaderOnly = xbrlreaderFactIDs.difference(jsonFactIDs)
+        jsonOnly = jsonFactIDs.difference(xbrlreaderFactIDs)
+        print('xbrlreader-only fact IDs:')
+        for factID in xbrlreaderOnly:
+            print(xbrlreaderOnly)
+        print('json-only fact IDs:')
+        for factID in jsonOnly:
+            print(jsonOnly)
+    else:
+        '''
+         "esef-5630_2020": {
+   "value": "\n Wien\n",
+   "dimensions": {
+    "concept": "ifrs-full:DomicileOfEntity",
+    "language": "de",
+    "entity": "scheme:5299001AMHDLKUM80611",
+    "period": "2020-01-01T00:00:00/2021-01-01T00:00:00"
+
+    "esef-5881_2020": {
+   "value": "996472000",
+   "decimals": -3,
+   "dimensions": {
+    "concept": "ifrs-full:PropertyPlantAndEquipment",
+    "entity": "scheme:5299001AMHDLKUM80611",
+    "period": "2021-01-01T00:00:00",
+    "unit": "iso4217:EUR"
+   }
+    '''
+        mapping = {
+            'value' : 'Value',
+            'concept' : 'Element',
+            'language' : 'Language',
+            'entity' : 'Identifier',
+            'period' : 'Period',
+            'decimals' : 'Decimals',
+            'unit' : 'UnitContent'
+        }
+        problem_keys = [
+            "ifrs-full:ComponentsOfEquityAxis",
+            'language'
+            ]
+        print('number of facts match between xbrlreader and json')
+        print('writing report on individual fact contents...')
+        errors = StringIO()
+        for factID, factData in jsonFacts.items():
+            assert factID in xbrlreaderFacts.keys(), \
+                str(factID) + ' not in xbrlreader facts'
+            xbrlreaderFact = xbrlreaderFacts[factID]
+            to_check = []
+            for key, value in factData.items():
+                if key != 'dimensions':
+                    to_check.append((key,value))
+            if 'dimensions' in factData.keys():
+                for key, value in factData['dimensions'].items():
+                    if key not in problem_keys:
+                        to_check.append((key,value))
+            for key, value in to_check:
+                assert key in mapping.keys(), \
+                'no mapping for ' + str(key)
+                testvalue = xbrlreaderFact[mapping[key]]
+                if str(value) != str(testvalue):
+                    errors.write(str(factID)+' '+str(mapping[key])+':'+'\n\tjson:'+str(value)+'\n\txbrlreader:'+str(testvalue)+'\n')
+        differenceLog = 'if-differences.log'
+        print('Complete See differences in file ', differenceLog)
+        with open(differenceLog, 'w') as outfile:
+            outfile.write(errors.getvalue())
 
 def main():
     print('Options: (v10)')
@@ -926,7 +996,7 @@ def main():
     print('\t3 - Regenerate element map')
     print('\t4 - Create labels.tsv and elements.tsv')
     print('\t5 - Process inline facts')
-    print('\t6 - check an inline fact file against json')
+    print('\t6 - Check an inline fact file against associated json')
     choice = input('\nPlease choose an option from the above:')
     if choice == '1':
         filingDownloader()
