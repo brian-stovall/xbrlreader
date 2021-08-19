@@ -799,14 +799,6 @@ def continuationReader(target, parentXml, valueSoFar=''):
         if continuation.get('id') == continueID:
             targetCont = continuation
             break
-    '''
-    continuationElems = parentXml.xpath("//ix:continuation[id='"+continueID+"']",
-        namespaces = {
-            'ix': 'http://www.xbrl.org/2013/inlineXBRL'
-        })
-    assert len(continuationElems) == 1, \
-        "Couldn't get continuation from line " + str(target.sourceline) + " for id " + continueID
-    '''
     assert targetCont is not None
     return continuationReader(targetCont, parentXml, valueSoFar)
 
@@ -895,10 +887,8 @@ def processUnits(xml):
     return unitMap
 
 def testInlineFact():
-    inlineFactFile = input('\nLocation of inline fact file:') or \
-        '/home/artiste/Desktop/work-dorette/mayr-melnhof.xhtml'
-    jsonFile = input('\nLocation of corresponding json file:') or \
-        '/home/artiste/Desktop/work-dorette/mayr-melnhof.json'
+    inlineFactFile = input('\nLocation of inline fact file:')
+    jsonFile = input('\nLocation of corresponding json file:')
     jsonFacts = None
     with open(jsonFile, 'r', encoding='utf-8') as f:
         jsonFacts = json.load(f)['facts']
@@ -966,7 +956,7 @@ def testInlineFact():
                 if str(value) != str(testvalue):
                     errors.write(str(factID)+' '+str(mapping[key])+':'+'\n\t       json: '+str(value)+'\n\t xbrlreader: '+str(testvalue)+'\n')
         differenceLog = 'if-differences_' + os.path.basename(inlineFactFile[:-6]) +'.log'
-        print('Complete See differences in file ', differenceLog)
+        print('Complete - see differences in file ', differenceLog)
         with open(differenceLog, 'w', encoding='utf-8') as outfile:
             outfile.write(errors.getvalue())
 
