@@ -465,15 +465,6 @@ def processLabels(processDTS=True):
     with open(elements_json, 'r', encoding='utf-8') as f:
         elementDict = json.load(f)
     labelsSheet = StringIO()
-    '''
-    labelsHeader = ['unique_filing_id','LinkbaseSystemId','Element','ElementId',
-        'ElementPrefix','ElementURI','ElementName','ElementTypeURI',
-        'ElementTypeName','ElementSubstitutionGroupURI',
-        'ElementSubstitutionGroupName','ElementPeriodType','ElementBalance',
-        'ElementAbstract','ElementNillable','XLinkRole','SrcLocatorRole',
-        'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
-        'LinkOrder','Priority','Use	Label','LabelLanguage']
-    '''
     labelsHeader = ['unique_filing_id','LinkbaseSystemId','ElementId',
         'XLinkRole','SrcLocatorRole',
         'SrcLocatorLabel','DestLocatorRole','DestLocatorLabel','Arcrole',
@@ -802,13 +793,22 @@ def continuationReader(target, parentXml, valueSoFar=''):
     if 'continuedAt' not in target.keys():
         return valueSoFar
     continueID = target.get('continuedAt')
+    continuationElems = getTaggedElements(parentXml, '{http://www.xbrl.org/2013/inlineXBRL}continuation')
+    targetCont = None
+    for continuation in continuationElems:
+        if continuation.get('id') == continueID:
+            targetCont = continuation
+            break
+    '''
     continuationElems = parentXml.xpath("//ix:continuation[id='"+continueID+"']",
         namespaces = {
             'ix': 'http://www.xbrl.org/2013/inlineXBRL'
         })
     assert len(continuationElems) == 1, \
-        "Couldn't get continuation in " + target + " for id " + continueID
-    return continuationReader(continuationElems[0], parentXml, valueSoFar)
+        "Couldn't get continuation from line " + str(target.sourceline) + " for id " + continueID
+    '''
+    assert targetCont is not None
+    return continuationReader(targetCont, parentXml, valueSoFar)
 
 
 
@@ -896,11 +896,11 @@ def processUnits(xml):
 
 def testInlineFact():
     inlineFactFile = input('\nLocation of inline fact file:') or \
-        '/home/artiste/Desktop/work-dorette/zalando-2020-12-31.xhtml'
+        '/home/artiste/Desktop/work-dorette/mayr-melnhof.xhtml'
     jsonFile = input('\nLocation of corresponding json file:') or \
-        '/home/artiste/Desktop/work-dorette/zalando-2020-12-31.json'
+        '/home/artiste/Desktop/work-dorette/mayr-melnhof.json'
     jsonFacts = None
-    with open(jsonFile, 'r') as f:
+    with open(jsonFile, 'r', encoding='utf-8') as f:
         jsonFacts = json.load(f)['facts']
     xbrlreaderFacts = {}
     ifBuffer = processInlineFact('dummy', inlineFactFile).getvalue()
@@ -931,25 +931,6 @@ def testInlineFact():
         for factID in jsonOnly:
             print(jsonOnly)
     else:
-        '''
-         "esef-5630_2020": {
-   "value": "\n Wien\n",
-   "dimensions": {
-    "concept": "ifrs-full:DomicileOfEntity",
-    "language": "de",
-    "entity": "scheme:5299001AMHDLKUM80611",
-    "period": "2020-01-01T00:00:00/2021-01-01T00:00:00"
-
-    "esef-5881_2020": {
-   "value": "996472000",
-   "decimals": -3,
-   "dimensions": {
-    "concept": "ifrs-full:PropertyPlantAndEquipment",
-    "entity": "scheme:5299001AMHDLKUM80611",
-    "period": "2021-01-01T00:00:00",
-    "unit": "iso4217:EUR"
-   }
-    '''
         mapping = {
             'value' : 'Value',
             'concept' : 'Element',
@@ -983,10 +964,10 @@ def testInlineFact():
                 'no mapping for ' + str(key)
                 testvalue = xbrlreaderFact[mapping[key]]
                 if str(value) != str(testvalue):
-                    errors.write(str(factID)+' '+str(mapping[key])+':'+'\n\tjson:'+str(value)+'\n\txbrlreader:'+str(testvalue)+'\n')
-        differenceLog = 'if-differences.log'
+                    errors.write(str(factID)+' '+str(mapping[key])+':'+'\n\t       json: '+str(value)+'\n\t xbrlreader: '+str(testvalue)+'\n')
+        differenceLog = 'if-differences_' + os.path.basename(inlineFactFile[:-6]) +'.log'
         print('Complete See differences in file ', differenceLog)
-        with open(differenceLog, 'w') as outfile:
+        with open(differenceLog, 'w', encoding='utf-8') as outfile:
             outfile.write(errors.getvalue())
 
 def main():
