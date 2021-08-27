@@ -688,11 +688,12 @@ def processInlineFact(uniqueID, target):
             details['Scale'] = nonFraction.get('scale')
         details['Decimals'] = nonFraction.get('decimals')
         if 'sign' not in nonFraction.keys():
-            details['Sign'] = ''
-            details['SignChar'] = ''
+            details['Sign'] = '1'
+            details['SignChar'] = '1'
         else:
-            details['Sign'] = nonFraction.get('sign', default='')
+            details['Sign'] = nonFraction.get('sign', default='1')
             if details['Sign'] == '-':
+                details['Sign'] = '-1'
                 details['SignChar'] = '('
             else:
                 details['SignChar'] = ''
@@ -981,6 +982,100 @@ def main():
         processInlineFacts()
     elif choice == '6':
         testInlineFact()
+'''
+def getFilingsWithoutJson():
+    savedURL = storage + 'filings.xbrl.org'
+    URL = 'https://filings.xbrl.org'
+    page = None
+    filingsWithoutJson = set()
+    if not os.path.exists(savedURL):
+        html = urlopen(URL).read().decode('utf-8')
+        with open(savedURL, 'w', encoding='utf-8') as f:
+            f.write(html)
+    with open(savedURL, 'r', encoding='utf-8') as f:
+        page = f.read()
+    root = ET.fromstring(page, parser=ET.HTMLParser())
+    #first get the table rows:
+    table = getTaggedElements(root, 'tbody')[0]
+    entries = getTaggedElements(table, 'tr')
+    for entry in entries:
+        uuid = None
+        json = None
+        data = getTaggedElements(entry, 'td')
+        for datapoint in data:
+            if datapoint.get('class') == 'icon-column':
+                if len(datapoint) == 1:
+                    href = datapoint[0].get('href')
+                    uuid = href.replace('/', '_')
+                    dataclass = datapoint[0][0].get('class')
+                    if dataclass == 'far fa-file-alt':
+                        json = href
+        if json is None:
+            filingsWithoutJson.add(uuid)
+    print(len(filingsWithoutJson))
+    for uuid in filingsWithoutJson:
+        print(uuid)
+getFilingsWithoutJson()
+'''
+def getAllUUIDs():
+    savedURL = storage + 'filings.xbrl.org'
+    URL = 'https://filings.xbrl.org'
+    page = None
+    filingsWithoutJson = set()
+    if not os.path.exists(savedURL):
+        html = urlopen(URL).read().decode('utf-8')
+        with open(savedURL, 'w', encoding='utf-8') as f:
+            f.write(html)
+    with open(savedURL, 'r', encoding='utf-8') as f:
+        page = f.read()
+    root = ET.fromstring(page, parser=ET.HTMLParser())
+    #first get the table rows:
+    table = getTaggedElements(root, 'tbody')[0]
+    entries = getTaggedElements(table, 'tr')
+    for entry in entries:
+        uuid = None
+        json = None
+        data = getTaggedElements(entry, 'td')
+        for datapoint in data:
+            if datapoint.get('class') == 'icon-column':
+                if len(datapoint) == 1:
+                    href = datapoint[0].get('href')
+                    uuid = href.replace('/', '_')
+        print(uuid)
+
+def compareFilingsLoaded():
+    rootdir = '/home/artiste/Desktop/work-dorette/'
+    allfilings = set()
+    with open(rootdir + 'all_filings.txt', 'r') as f:
+        for entry in f.readlines():
+            allfilings.add(entry)
+    loadedfilings = set()
+    with open(rootdir + 'loaded_filings.txt', 'r') as f:
+        for entry in f.readlines():
+            loadedfilings.add(entry)
+    nojsonfilings = set()
+    with open(rootdir + 'fiilngs_without_json.txt', 'r') as f:
+        for entry in f.readlines():
+            nojsonfilings.add(entry)
+    filingsNotLoaded = allfilings.difference(loadedfilings)
+    print('total filings:', len(allfilings))
+    print('loaded filings:', len(loadedfilings))
+    print('filings not loaded:', len(filingsNotLoaded))
+    print('filings without json:', len(nojsonfilings))
+    nonJsonFilingsloaded = loadedfilings.intersection(nojsonfilings)
+    print('json-less filings loaded:', len(nonJsonFilingsloaded))
+    jsonfilings = allfilings.difference(nojsonfilings)
+    print('filings with json:', len(jsonfilings))
+    jsonfilingsnotloaded = jsonfilings.difference(loadedfilings)
+    print('json-having filings not loaded:', len(jsonfilingsnotloaded))
+    '''
+    for filing in jsonfilingsnotloaded:
+        print(filing)
+    '''
+    nonJsonFilingsNotLoaded = nojsonfilings.difference(nonJsonFilingsloaded)
+    print('non-json filings not loaded:', len(nonJsonFilingsNotLoaded))
+
+#compareFilingsLoaded()
 main()
 
 
