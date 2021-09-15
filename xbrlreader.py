@@ -41,15 +41,18 @@ def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
     assert ('../' not in filename), \
         'garbage file ref got through: \n' + filename
-    if 'http' in filename:
-        if filename not in storageDict.keys():
-            timestamp = str(time.time())
-            cachelocation = storage + timestamp
-            with open(cachelocation, 'w', encoding='utf-8') as f:
-                f.write(requests.get(filename).text)
-            storageDict[filename] = cachelocation
-        return ET.parse(storageDict[filename], parser=bigParser).getroot()
-    return ET.parse(filename, parser=bigParser).getroot()
+    try:
+        if 'http' in filename:
+            if filename not in storageDict.keys():
+                timestamp = str(time.time())
+                cachelocation = storage + timestamp
+                with open(cachelocation, 'w', encoding='utf-8') as f:
+                    f.write(requests.get(filename).text)
+                storageDict[filename] = cachelocation
+            return ET.parse(storageDict[filename], parser=bigParser).getroot()
+        return ET.parse(filename, parser=bigParser).getroot()
+    except:
+        return False
 
 def getTaggedElements(parentXML, targetTag):
     '''gets all xml elements of a specific type (tag) from a root object'''
@@ -95,6 +98,8 @@ def process_elements(targets):
             errorlog.write(str(target) + '\t\n' + str(e) + '\n')
             with open(badXMLErrorLog, 'a', encoding='utf-8') as f:
                 f.write(errorlog.getvalue())
+            continue
+        if not root:
             continue
         targetNamespace = root.get('targetNamespace')
         if targetNamespace is not None:
@@ -531,6 +536,8 @@ def processLabel(labelsSheet, target, parentdir, uuid, elementDict):
             with open(badXMLErrorLog, 'a', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n')
             return labelsSheet
+    if not xml:
+        return labelsSheet
     labels = getTaggedElements(xml,'{http://www.xbrl.org/2003/linkbase}labelLink')
     for label in labels:
         try:
@@ -673,6 +680,8 @@ def processInlineFact(uniqueID, target):
             f.write(str(target) + '\t\n' + str(e) + '\n')
             #tb_str = ''.join(traceback.format_tb(e.__traceback__))
             print('logged to ', os.path.abspath(f))
+        return ifBuffer
+    if not xml:
         return ifBuffer
     nonFractions = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonFraction')
     footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
@@ -997,7 +1006,7 @@ def testInlineFact(inlineFactFile = None, jsonFile = None):
             outfile.write(errors.getvalue())
 
 def main():
-    print('Options: (v11.03)')
+    print('Options: (v11.04)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
@@ -1110,13 +1119,13 @@ def compareFilingsLoaded():
     nonJsonFilingsNotLoaded = nojsonfilings.difference(nonJsonFilingsloaded)
     print('non-json filings not loaded:', len(nonJsonFilingsNotLoaded))
 
-single_test = True
+single_test = False
 #compareFilingsLoaded()
 if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    ifFile = testdir + 'taginfos.xml'
+    ifFile = testdir + '.DS_Store'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
     singleIF(ifFile)
