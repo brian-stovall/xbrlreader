@@ -800,6 +800,8 @@ def processInlineFact(uniqueID, target):
             'Scenario','UnitId','UnitContent']:
                 cell = ''
                 if data in details.keys():
+                    if details[data] is None:
+                        details[data] = ''
                     cell = details[data].replace('\t',' ').replace('\n', ' ').replace('\r', ' ')
                 ifBuffer.write(cell + sep)
             ifBuffer.write('\n')
@@ -986,7 +988,7 @@ def testInlineFact(inlineFactFile = None, jsonFile = None):
             outfile.write(errors.getvalue())
 
 def main():
-    print('Options: (v11.01)')
+    print('Options: (v11.02)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
@@ -1105,7 +1107,7 @@ if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    ifFile = testdir + 'TELE-2020-12-31AR.xhtml'
+    ifFile = testdir + '213800FKA5MF17RJKT63-2020-12-31-T01.html'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
     singleIF(ifFile)
