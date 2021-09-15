@@ -632,6 +632,8 @@ def processInlineFacts():
     for uuid, directory in completedDownloads:
         for directory, dirname, filenames in os.walk(directory):
           for filename in filenames:
+            if '.pdf' in filename:
+                continue
             targetNamespace = None
             target = os.path.join(directory, filename)
             targets.add((target, getParentDirectory(target, directory), uuid))
@@ -640,12 +642,18 @@ def processInlineFacts():
             ifBuffer = processInlineFact(uniqueID, target)
             ifSheet.write(ifBuffer.getvalue())
         except Exception as e:
-            print("\nError processing inlineFact from", target, "logged and skipped")
+            print("\nError processing inlineFact from", target, "logged")
             tb_str = ''.join(traceback.format_tb(e.__traceback__))
             with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
                 f.write(str(target) + '\t\n' + str(e) + '\n' + tb_str +'\n')
+                print('logged to ', os.path.abspath(f))
     with open(storage+'inline_facts.tsv', 'w', encoding='utf-8') as f:
         f.write(ifSheet.getvalue())
+
+def singleIF(filename):
+    uuid = 'dummy'
+    ifBuffer = processInlineFact(uuid, filename)
+    print(len(ifBuffer.getvalue()))
 
 def processInlineFact(uniqueID, target):
     processedFactIDs = set()
@@ -660,6 +668,8 @@ def processInlineFact(uniqueID, target):
         print("\nError loading inlineFact from", target, "logged and skipped")
         with open(badIF_ErrorLog, 'a', encoding='utf-8') as f:
             f.write(str(target) + '\t\n' + str(e) + '\n')
+            #tb_str = ''.join(traceback.format_tb(e.__traceback__))
+            print('logged to ', os.path.abspath(f))
         return ifBuffer
     nonFractions = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}nonFraction')
     footnotes = getTaggedElements(xml,'{http://www.xbrl.org/2013/inlineXBRL}footnote')
@@ -682,7 +692,10 @@ def processInlineFact(uniqueID, target):
         if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonFraction.keys():
             details['Nil'] = nonFraction.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
         details['Content'] = nonFraction.text
-        details['Format'] = nonFraction.get('format')
+        if 'format' in nonFraction.keys(): #format does not always exist
+            details['Format'] = nonFraction.get('format')
+        else:
+            details['Format'] = ''
         details['Scale'] = str(0) #sometimes scale does not exist :(
         if 'scale' in nonFraction.keys():
             details['Scale'] = nonFraction.get('scale')
@@ -715,6 +728,8 @@ def processInlineFact(uniqueID, target):
         details['Element'] = nonFraction.get('name')
         factID = nonFraction.get('id')
         details['FactID'] = factID
+        if factID is None:
+            details['FactID'] = ''
         if factID in processedFactIDs:
             continue
         else:
@@ -726,6 +741,8 @@ def processInlineFact(uniqueID, target):
         details['UnitContent'] = unitMap[unitRef]['UnitContent']
         for k, v in details.items():
             if not isinstance(v, str):
+                print('nonFraction on line: ', nonFraction.sourceline)
+                print(ET.tostring(nonFraction))
                 print('not a string: ', k, type(v))
                 assert False
         ifBuffer.write(uniqueID + sep + target + sep)
@@ -887,9 +904,11 @@ def processUnits(xml):
         }
     return unitMap
 
-def testInlineFact():
-    inlineFactFile = input('\nLocation of inline fact file:')
-    jsonFile = input('\nLocation of corresponding json file:')
+def testInlineFact(inlineFactFile = None, jsonFile = None):
+    if not inlineFactFile:
+        inlineFactFile = input('\nLocation of inline fact file:')
+    if not jsonFile:
+        jsonFile = input('\nLocation of corresponding json file:')
     jsonFacts = None
     with open(jsonFile, 'r', encoding='utf-8') as f:
         jsonFacts = json.load(f)['facts']
@@ -915,12 +934,14 @@ def testInlineFact():
         jsonFactIDs = set(jsonFacts.keys())
         xbrlreaderOnly = xbrlreaderFactIDs.difference(jsonFactIDs)
         jsonOnly = jsonFactIDs.difference(xbrlreaderFactIDs)
+        '''
         print('xbrlreader-only fact IDs:')
         for factID in xbrlreaderOnly:
             print(xbrlreaderOnly)
         print('json-only fact IDs:')
         for factID in jsonOnly:
             print(jsonOnly)
+        '''
     else:
         mapping = {
             'value' : 'Value',
@@ -962,7 +983,7 @@ def testInlineFact():
             outfile.write(errors.getvalue())
 
 def main():
-    print('Options: (v10)')
+    print('Options: (v11.01)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
@@ -1046,15 +1067,15 @@ def getAllUUIDs():
 def compareFilingsLoaded():
     rootdir = '/home/artiste/Desktop/work-dorette/'
     allfilings = set()
-    with open(rootdir + 'all_filings.txt', 'r') as f:
+    with open(rootdir + 'all_filings.txt', 'r', encoding='utf-8') as f:
         for entry in f.readlines():
             allfilings.add(entry)
     loadedfilings = set()
-    with open(rootdir + 'loaded_filings.txt', 'r') as f:
+    with open(rootdir + 'loaded_filings.txt', 'r', encoding='utf-8') as f:
         for entry in f.readlines():
             loadedfilings.add(entry)
     nojsonfilings = set()
-    with open(rootdir + 'fiilngs_without_json.txt', 'r') as f:
+    with open(rootdir + 'fiilngs_without_json.txt', 'r', encoding='utf-8') as f:
         for entry in f.readlines():
             nojsonfilings.add(entry)
     filingsNotLoaded = allfilings.difference(loadedfilings)
@@ -1077,7 +1098,12 @@ def compareFilingsLoaded():
 
 #compareFilingsLoaded()
 main()
-
-
+'''
+testdir = '/home/artiste/Desktop/work-dorette/to_test/'
+ifFile = testdir + 'wacker.xhtml'
+#jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
+#testInlineFact(ifFile, jsonFile)
+singleIF(ifFile)
+'''
 
 
