@@ -695,6 +695,8 @@ def processInlineFact(uniqueID, target):
         if '{http://www.w3.org/2001/XMLSchema-instance}isnil' in nonFraction.keys():
             details['Nil'] = nonFraction.get('{http://www.w3.org/2001/XMLSchema-instance}isnil')
         details['Content'] = nonFraction.text
+        if details['Content'] is None:
+            details['Content'] = ''
         if 'format' in nonFraction.keys(): #format does not always exist
             details['Format'] = nonFraction.get('format')
         else:
@@ -713,8 +715,11 @@ def processInlineFact(uniqueID, target):
                 details['SignChar'] = '('
             else:
                 details['SignChar'] = ''
-        details['Value'] = details['Sign'] + details['Content'] + \
-            '0' * int(details['Scale'])
+        if details['Content'] == '':
+            details['Value'] = ''
+        else:
+            details['Value'] = details['Sign'] + details['Content'] + \
+                '0' * int(details['Scale'])
         details['Value'] = details['Value'].replace(' ', '')
         details['FootnoteRefs'] = ''
         details['InstanceSystemId'] = 'todo'
@@ -742,6 +747,10 @@ def processInlineFact(uniqueID, target):
             'could not find unit for unitRef ' + unitRef
         details['UnitId'] = unitMap[unitRef]['UnitId']
         details['UnitContent'] = unitMap[unitRef]['UnitContent']
+        #cleaning pass for None values
+        for k, v in details.items():
+            if v is None:
+                details[k] = ''
         for k, v in details.items():
             if not isinstance(v, str):
                 print('nonFraction on line: ', nonFraction.sourceline)
@@ -988,7 +997,7 @@ def testInlineFact(inlineFactFile = None, jsonFile = None):
             outfile.write(errors.getvalue())
 
 def main():
-    print('Options: (v11.02)')
+    print('Options: (v11.03)')
     print('\t1 - Continue downloading filings')
     print('\t2 - Create comments.tsv')
     print('\t3 - Regenerate element map')
@@ -1101,13 +1110,13 @@ def compareFilingsLoaded():
     nonJsonFilingsNotLoaded = nojsonfilings.difference(nonJsonFilingsloaded)
     print('non-json filings not loaded:', len(nonJsonFilingsNotLoaded))
 
-single_test = False
+single_test = True
 #compareFilingsLoaded()
 if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    ifFile = testdir + '213800FKA5MF17RJKT63-2020-12-31-T01.html'
+    ifFile = testdir + 'taginfos.xml'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
     singleIF(ifFile)
