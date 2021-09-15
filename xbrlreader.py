@@ -26,6 +26,9 @@ sep = '\t'
 storageDict = None
 superNSmap = {}
 cacheUID = 'DTS'
+
+bigParser = ET.XMLParser(huge_tree=True)
+
 ifSheetHeader = [ 'unique_filing_id',
     'InlineXBRLSystemId', 'FactID', 'Type','Hidden','Content','Format','Scale',
     'Sign','SignChar','FootnoteRefs','InstanceSystemId','Element',
@@ -45,8 +48,8 @@ def xmlFromFile(filename):
             with open(cachelocation, 'w', encoding='utf-8') as f:
                 f.write(requests.get(filename).text)
             storageDict[filename] = cachelocation
-        return ET.parse(storageDict[filename]).getroot()
-    return ET.parse(filename).getroot()
+        return ET.parse(storageDict[filename], parser=bigParser).getroot()
+    return ET.parse(filename, parser=bigParser).getroot()
 
 def getTaggedElements(parentXML, targetTag):
     '''gets all xml elements of a specific type (tag) from a root object'''
@@ -1096,14 +1099,16 @@ def compareFilingsLoaded():
     nonJsonFilingsNotLoaded = nojsonfilings.difference(nonJsonFilingsloaded)
     print('non-json filings not loaded:', len(nonJsonFilingsNotLoaded))
 
+single_test = False
 #compareFilingsLoaded()
-main()
-'''
-testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-ifFile = testdir + 'wacker.xhtml'
-#jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
-#testInlineFact(ifFile, jsonFile)
-singleIF(ifFile)
-'''
+if not single_test:
+    main()
+else:
+    testdir = '/home/artiste/Desktop/work-dorette/to_test/'
+    ifFile = testdir + 'TELE-2020-12-31AR.xhtml'
+    #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
+    #testInlineFact(ifFile, jsonFile)
+    singleIF(ifFile)
+
 
 
