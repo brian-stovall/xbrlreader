@@ -21,6 +21,7 @@ commentsErrorLog = storage + 'commentsErrorLog.txt'
 badXMLErrorLog = storage + 'badXMLErrorLog.txt'
 labelErrorLog = storage + 'labelErrors.txt'
 badIF_ErrorLog = storage + 'inlineFactErrors.txt'
+badDEF_ErrorLog = storage + 'definitionErrors.txt'
 elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
@@ -36,6 +37,25 @@ ifSheetHeader = [ 'unique_filing_id',
     'Period','StartDate','EndDate','Identifier','Scheme',
     'Scenario','UnitId','UnitContent'
     ]
+
+defHeader = [
+        'unique_filing_id',
+        'LinkbaseSystemId',
+        'Element',
+        'ParentElement',
+        'XLinkRole',
+        'SrcLocatorRole',
+        'SrcLocatorLabel',
+        'DestLocatorRole',
+        'DestLocatorLabel',
+        'Arcrole',
+        'LinkOrder',
+        'Priority',
+        'Use',
+        'TargetRole',
+        'ContextElement',
+        'Usable'
+        ]
 
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
@@ -843,8 +863,6 @@ def continuationReader(target, parentXml, valueSoFar=''):
     assert targetCont is not None
     return continuationReader(targetCont, parentXml, valueSoFar)
 
-
-
 def processContexts(xml):
     contextMap = {}
     contexts = getTaggedElements(xml,'{http://www.xbrl.org/2003/instance}context')
@@ -1119,16 +1137,74 @@ def compareFilingsLoaded():
     nonJsonFilingsNotLoaded = nojsonfilings.difference(nonJsonFilingsloaded)
     print('non-json filings not loaded:', len(nonJsonFilingsNotLoaded))
 
-single_test = False
+def processDefinition(uniqueID, target):
+    xml = None
+    defBuffer = StringIO()
+    if os.path.isdir(target):
+        return defBuffer
+    try:
+        xml = xmlFromFile(target)
+    except Exception as e:
+        print("\nError loading definitions from", target, "logged and skipped")
+        with open(badDEF_ErrorLog, 'a', encoding='utf-8') as f:
+            f.write(str(target) + '\t\n' + str(e) + '\n')
+            #tb_str = ''.join(traceback.format_tb(e.__traceback__))
+            print('logged to ', os.path.abspath(f))
+        return defBuffer
+    if xml is None:
+        return defBuffer
+    #first, process a dictionary of locator stuff
+    locatorMap = {}
+    locators = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}loc')
+    for locator in locators:
+        href = locator.get('{http://www.w3.org/1999/xlink}href')
+        element = href[href.index('#') + 1:]
+        label = locator.get('{http://www.w3.org/1999/xlink}label')
+        locatorMap[label] = element
+    definitionLinks = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}definitionLink')
+    for definitionLink in definitionLinks:
+        definitionArcs = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}definitionArc')
+        for definitionArc in definitionArcs:
+            dataSet = {}
+            dataSet['unique_filing_id'] = uniqueID
+            dataSet['XLinkRole'] = definitionLink.get('{http://www.w3.org/1999/xlink}role')
+            dataSet['LinkbaseSystemId'] = target
+            dataSet['Element'] = locatorMap[definitionArc.get('{http://www.w3.org/1999/xlink}to')]
+            dataSet['ParentElement'] = locatorMap[definitionArc.get('{http://www.w3.org/1999/xlink}from')]
+            dataSet['SrcLocatorRole'] = ''
+            dataSet['SrcLocatorLabel'] = definitionArc.get('{http://www.w3.org/1999/xlink}from')
+            dataSet['DestLocatorRole'] = ''
+            dataSet['DestLocatorLabel'] = definitionArc.get('{http://www.w3.org/1999/xlink}to')
+            dataSet['Arcrole'] = definitionArc.get('{http://www.w3.org/1999/xlink}arcrole')
+            dataSet['LinkOrder'] = definitionArc.get('order')
+            dataSet['Priority'] = definitionArc.get('priority') or '0'
+            dataSet['Use'] = 'optional'
+            dataSet['TargetRole'] = ''
+            dataSet['ContextElement'] = definitionArc.get('{http://xbrl.org/2005/xbrldt}contextElement') or ''
+            dataSet['Usable'] = ''
+            for data in defHeader:
+                defBuffer.write(dataSet[data] + '\t')
+            defBuffer.write('\n')
+    return defBuffer
+
+def singleDef(filename):
+    uuid = 'dummy'
+    defBuffer = processDefinition(uuid, filename)
+    outfile = 'sampleDef.tsv'
+    with open(outfile, 'w', encoding='utf-8') as f:
+        f.write('\t'.join(defHeader) + '\n')
+        f.write(defBuffer.getvalue())
+
+single_test = True
 #compareFilingsLoaded()
 if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    ifFile = testdir + '.DS_Store'
+    defFile = testdir + 'enea-2020-12-31_def.xml'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
-    singleIF(ifFile)
+    singleDef(defFile)
 
 
 
