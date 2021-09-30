@@ -57,6 +57,18 @@ defHeader = [
         'Usable'
         ]
 
+cdHeader = [
+        'unique_filing_id',
+        'InstanceSystemId',
+        'ContextId',
+        'ContextElement',
+        'DimensionType',
+        'Dimension',
+        'MemberElement',
+        'ExplicitMember',
+        'TypedMemberValue'
+        ]
+
 def xmlFromFile(filename):
     '''takes a url (or local filename) and returns root XML object'''
     assert ('../' not in filename), \
@@ -1187,6 +1199,77 @@ def processDefinition(uniqueID, target):
             defBuffer.write('\n')
     return defBuffer
 
+def processContextDimension(uniqueID, target):
+    xml = None
+    cdBuffer = StringIO()
+    if os.path.isdir(target):
+        return cdBuffer
+    try:
+        xml = xmlFromFile(target)
+    except Exception as e:
+        print("\nError loading context/dimensions from", target, "logged and skipped")
+        with open(badCD_ErrorLog, 'a', encoding='utf-8') as f:
+            f.write(str(target) + '\t\n' + str(e) + '\n')
+            #tb_str = ''.join(traceback.format_tb(e.__traceback__))
+            print('logged to ', os.path.abspath(f))
+        return cdBuffer
+    if xml is None:
+        return cdBuffer
+    contexts = getTaggedElements(xml, '{http://www.xbrl.org/2003/instance}context')
+    for context in contexts:
+        dataset = {}
+        dataset['unique_filing_id'] = uniqueID
+        dataset['InstanceSystemId'] = target
+        dataset['ContextId'] = context.get('id')
+        contextElement = None
+        importantChild = None
+        for child in context.iter():
+            if child.tag == '{http://www.xbrl.org/2003/instance}scenario':
+                contextElement = 'scenario'
+                importantChild = child
+                break
+            if child.tag == '{http://www.xbrl.org/2003/instance}segment':
+                contextElement = 'segment'
+                importantChild = child
+                break
+        if importantChild == None:
+            continue
+        dataset['ContextElement'] = contextElement
+        dimension = importantChild[0]
+        dataset['DimensionType'] = ''
+        if dimension.tag == '{http://xbrl.org/2006/xbrldi}explicitMember':
+            dataset['DimensionType'] = 'explicit'
+        else:
+            assert(False), 'no support for typed member yet'
+        dataset['Dimension'] = dimension.get('dimension')
+        dataset['MemberElement'] = str(ET.tostring(dimension))[2:-1]
+        dataset['ExplicitMember'] = dimension.text
+        dataset['TypedMemberValue'] = ''
+        for data in cdHeader:
+            cdBuffer.write(dataset[data] + '\t')
+        cdBuffer.write('\n')
+    return cdBuffer
+
+cdHeader = [
+        'unique_filing_id',
+        'InstanceSystemId',
+        'ContextId',
+        'ContextElement',
+        'DimensionType',
+        'Dimension',
+        'MemberElement',
+        'ExplicitMember',
+        'TypedMemberValue'
+        ]
+
+def singleCD(filename):
+    uuid = 'dummy'
+    cdBuffer = processContextDimension(uuid, filename)
+    outfile = 'sampleCD.tsv'
+    with open(outfile, 'w', encoding='utf-8') as f:
+        f.write('\t'.join(cdHeader) + '\n')
+        f.write(cdBuffer.getvalue())
+
 def singleDef(filename):
     uuid = 'dummy'
     defBuffer = processDefinition(uuid, filename)
@@ -1201,10 +1284,10 @@ if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    defFile = testdir + 'enea-2020-12-31_def.xml'
+    cdFile = testdir + 'enea-2020-12-31.xhtml'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
-    singleDef(defFile)
+    singleCD(cdFile)
 
 
 
