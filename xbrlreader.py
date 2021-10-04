@@ -44,17 +44,17 @@ defHeader = [
         'Element',
         'ParentElement',
         'XLinkRole',
-        'SrcLocatorRole',
+        #'SrcLocatorRole',
         'SrcLocatorLabel',
-        'DestLocatorRole',
+        #'DestLocatorRole',
         'DestLocatorLabel',
         'Arcrole',
         'LinkOrder',
         'Priority',
         'Use',
-        'TargetRole',
+        #'TargetRole',
         'ContextElement',
-        'Usable'
+        #'Usable'
         ]
 
 cdHeader = [
@@ -66,7 +66,7 @@ cdHeader = [
         'Dimension',
         'MemberElement',
         'ExplicitMember',
-        'TypedMemberValue'
+        #'TypedMemberValue'
         ]
 
 def xmlFromFile(filename):
@@ -1250,18 +1250,6 @@ def processContextDimension(uniqueID, target):
         cdBuffer.write('\n')
     return cdBuffer
 
-cdHeader = [
-        'unique_filing_id',
-        'InstanceSystemId',
-        'ContextId',
-        'ContextElement',
-        'DimensionType',
-        'Dimension',
-        'MemberElement',
-        'ExplicitMember',
-        'TypedMemberValue'
-        ]
-
 def singleCD(filename):
     uuid = 'dummy'
     cdBuffer = processContextDimension(uuid, filename)
@@ -1284,10 +1272,10 @@ if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
-    cdFile = testdir + 'enea-2020-12-31.xhtml'
+    defFile = testdir + 'enea-2020-12-31_def.xml'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
-    singleCD(cdFile)
+    singleDef(defFile)
 
 
 
