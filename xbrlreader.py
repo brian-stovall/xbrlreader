@@ -22,6 +22,7 @@ badXMLErrorLog = storage + 'badXMLErrorLog.txt'
 labelErrorLog = storage + 'labelErrors.txt'
 badIF_ErrorLog = storage + 'inlineFactErrors.txt'
 badDEF_ErrorLog = storage + 'definitionErrors.txt'
+badPRE_ErrorLog = storage + 'presentationErrors.txt'
 elements_json = storage + 'elements.json'
 sep = '\t'
 storageDict = None
@@ -55,6 +56,23 @@ defHeader = [
         #'TargetRole',
         'ContextElement',
         #'Usable'
+        ]
+
+preHeader = [
+        'unique_filing_id',
+        'LinkbaseSystemId',
+        'Element',
+        'ParentElement',
+        'XLinkRole',
+        #'SrcLocatorRole',
+        'SrcLocatorLabel',
+        #'DestLocatorRole',
+        'DestLocatorLabel',
+        'Arcrole',
+        'LinkOrder',
+        'Priority',
+        'Use',
+        'PreferredLabel',
         ]
 
 cdHeader = [
@@ -1250,6 +1268,56 @@ def processContextDimension(uniqueID, target):
         cdBuffer.write('\n')
     return cdBuffer
 
+def processPresentation(uniqueID, target):
+    xml = None
+    preBuffer = StringIO()
+    if os.path.isdir(target):
+        return preBuffer
+    try:
+        xml = xmlFromFile(target)
+    except Exception as e:
+        print("\nError loading presentations from", target, "logged and skipped")
+        with open(badPRE_ErrorLog, 'a', encoding='utf-8') as f:
+            f.write(str(target) + '\t\n' + str(e) + '\n')
+            #tb_str = ''.join(traceback.format_tb(e.__traceback__))
+            print('logged to ', os.path.abspath(f))
+        return preBuffer
+    if xml is None:
+        return preBuffer
+    #first, process a dictionary of locator stuff
+    locatorMap = {}
+    locators = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}loc')
+    for locator in locators:
+        href = locator.get('{http://www.w3.org/1999/xlink}href')
+        element = href[href.index('#') + 1:]
+        label = locator.get('{http://www.w3.org/1999/xlink}label')
+        locatorMap[label] = element
+    preLinks = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}presentationLink')
+    for preLink in preLinks:
+        preArcs = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}presentationArc')
+        for preArc in preArcs:
+            dataSet = {}
+            dataSet['unique_filing_id'] = uniqueID
+            dataSet['XLinkRole'] = preLink.get('{http://www.w3.org/1999/xlink}role')
+            dataSet['LinkbaseSystemId'] = target
+            dataSet['Element'] = locatorMap[preArc.get('{http://www.w3.org/1999/xlink}to')]
+            dataSet['ParentElement'] = locatorMap[preArc.get('{http://www.w3.org/1999/xlink}from')]
+            dataSet['SrcLocatorRole'] = ''
+            dataSet['SrcLocatorLabel'] = preArc.get('{http://www.w3.org/1999/xlink}from')
+            dataSet['DestLocatorRole'] = ''
+            dataSet['DestLocatorLabel'] = preArc.get('{http://www.w3.org/1999/xlink}to')
+            dataSet['Arcrole'] = preArc.get('{http://www.w3.org/1999/xlink}arcrole')
+            dataSet['LinkOrder'] = preArc.get('order')
+            dataSet['Priority'] = preArc.get('priority') or '0'
+            dataSet['Use'] = 'optional'
+            dataSet['TargetRole'] = ''
+            dataSet['PreferredLabel'] = preArc.get('preferredLabel') or ''
+            dataSet['Usable'] = ''
+            for data in preHeader:
+                preBuffer.write(dataSet[data] + '\t')
+            preBuffer.write('\n')
+    return preBuffer
+
 def singleCD(filename):
     uuid = 'dummy'
     cdBuffer = processContextDimension(uuid, filename)
@@ -1266,16 +1334,28 @@ def singleDef(filename):
         f.write('\t'.join(defHeader) + '\n')
         f.write(defBuffer.getvalue())
 
+def singlePre(filename):
+    uuid = 'dummy'
+    preBuffer = processPresentation(uuid, filename)
+    outfile = 'samplePre.tsv'
+    with open(outfile, 'w', encoding='utf-8') as f:
+        f.write('\t'.join(preHeader) + '\n')
+        f.write(preBuffer.getvalue())
+
 single_test = True
 #compareFilingsLoaded()
 if not single_test:
     main()
 else:
     testdir = '/home/artiste/Desktop/work-dorette/to_test/'
+    '''
     defFile = testdir + 'enea-2020-12-31_def.xml'
     #jsonFile = testdir + '959800L8KD863DP30X04-20201231.json'
     #testInlineFact(ifFile, jsonFile)
     singleDef(defFile)
+    '''
+    preFile = testdir + 'enea-2020-12-31_pre.xml'
+    singlePre(preFile)
 
 
 
