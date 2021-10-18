@@ -1193,7 +1193,7 @@ def processDefinition(uniqueID, target):
         locatorMap[label] = element
     definitionLinks = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}definitionLink')
     for definitionLink in definitionLinks:
-        definitionArcs = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}definitionArc')
+        definitionArcs = getTaggedElements(definitionLink, '{http://www.xbrl.org/2003/linkbase}definitionArc')
         for definitionArc in definitionArcs:
             dataSet = {}
             dataSet['unique_filing_id'] = uniqueID
@@ -1294,7 +1294,7 @@ def processPresentation(uniqueID, target):
         locatorMap[label] = element
     preLinks = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}presentationLink')
     for preLink in preLinks:
-        preArcs = getTaggedElements(xml, '{http://www.xbrl.org/2003/linkbase}presentationArc')
+        preArcs = getTaggedElements(preLink, '{http://www.xbrl.org/2003/linkbase}presentationArc')
         for preArc in preArcs:
             dataSet = {}
             dataSet['unique_filing_id'] = uniqueID
